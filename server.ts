@@ -879,6 +879,64 @@ except Exception as e:
     }
   });
 
+  // GET n8n API Key configuration status
+  app.get("/api/n8n/key", (req, res) => {
+    try {
+      const apiKey = db.getMemory("N8N_API_KEY") || "";
+      res.json({
+        configured: !!apiKey,
+        apiKey: apiKey ? "****" : ""
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET n8n health check
+  app.get("/api/n8n/health", async (req, res) => {
+    try {
+      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(`${n8nUrl}/healthz`, { signal: controller.signal });
+      clearTimeout(timeout);
+      res.json({ reachable: response.ok });
+    } catch (err) {
+      res.json({ reachable: false });
+    }
+  });
+
+  // GET n8n workflows
+  app.get("/api/n8n/workflows", async (req, res) => {
+    try {
+      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
+      const apiKey = db.getMemory("N8N_API_KEY") || "";
+      if (!apiKey) return res.status(401).json({ error: "No API Key" });
+
+      const response = await fetch(`${n8nUrl}/api/v1/workflows`, {
+        headers: { "X-N8N-API-KEY": apiKey }
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST save n8n API Key
+  app.post("/api/n8n/key", (req, res) => {
+    try {
+      const { apiKey } = req.body || {};
+      if (!apiKey) {
+        return res.status(400).json({ error: "API Key is required" });
+      }
+      db.saveMemory("N8N_API_KEY", apiKey, "N8N_Integration");
+      res.json({ status: "success", message: "n8n API Key saved successfully!" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/github/pull", async (req, res) => {
     try {
       const { exec } = await import("child_process");

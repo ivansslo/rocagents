@@ -1059,14 +1059,14 @@ Ada bagian atau kasus loop tertentu yang ingin Anda bedah lebih dalam?`;
 Ada instruksi atau perubahan spesifik yang ingin kamu eksekusi sekarang?`;
   } else {
     // Dynamic adaptive response tailored directly to prompt
-    response = `🧠 **Live Brain Respon Active**
+    response = `🧠 **Live Brain Online**
 
-Halo! Saya telah mengaktifkan **Live Respon Brain** dan siap membantu kamu secara dinamis, responsif, dan adaptif tanpa jawaban monoton.
+Siap beraksi! Workspace terhubung secara dinamis dan responsif. Apa yang ingin kamu kembangkan atau optimalkan hari ini?
 
 **Ringkasan Akses & Alat:**
 - **Code Workspace**: Pengeditan & pembuatan komponen UI React, TypeScript, dan server routes.
 - **Self-Development Capabilities**: Pendaftaran capability baru, eksekusi AST, serta inspeksi **Diff View** riwayat eksekusi code.
-- **Memory Engine**: Penyimpan daya ingat vektor dan pencarian berbasis kategori.
+- **Memory Engine & n8n Integration**: Penyimpan daya ingat vektor dan otomasi alur kerja (n8n) aktif.
 
 Silakan sampaikan perintah atau perubahan yang ingin kamu terapkan pada workspace ini!`;
   }

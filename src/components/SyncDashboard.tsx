@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   RefreshCw, Server, CheckCircle2, AlertCircle, FileCode, Radio, 
   Database, Terminal, Brain, Cpu, ShieldCheck, Lock, Sparkles, 
-  Plus, Trash2, Search, Activity, HardDrive, X 
+  Plus, Trash2, Search, Activity, HardDrive, X, Workflow 
 } from 'lucide-react';
 import { AppSyncInfo } from '../types';
 import { safeFetchJson } from '../lib/api';
@@ -72,6 +72,25 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
 
   // GitHub OAuth App State
   const [githubAppUser, setGithubAppUser] = useState<any>(null);
+
+  // N8N State
+  const [n8nWorkflows, setN8nWorkflows] = useState<any[]>([]);
+  const [n8nLoadingWorkflows, setN8nLoadingWorkflows] = useState(false);
+
+  const fetchN8nWorkflows = async () => {
+    setN8nLoadingWorkflows(true);
+    try {
+      const res = await fetch('/api/n8n/workflows');
+      if (res.ok) {
+        const data = await res.json();
+        setN8nWorkflows(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch N8N workflows:', err);
+    } finally {
+      setN8nLoadingWorkflows(false);
+    }
+  };
 
   // Backboard.io State
   const [backboardInfo, setBackboardInfo] = useState<any>(null);
@@ -361,6 +380,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
     fetchApertureStatus();
     fetchOciShellStatus();
     fetchSnowflakeStatus();
+    fetchN8nWorkflows();
   }, []);
 
   const handleSync = async (id: string) => {
@@ -2145,6 +2165,33 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
                   <span className="text-[9px] text-theme-text-muted mt-3 font-mono">Index updated: {new Date(mem.updatedAt).toLocaleString()}</span>
                 </div>
               ))
+            )}
+          </div>
+
+
+          {/* N8N Workflows List */}
+          <div className="bg-theme-bg/60 border border-theme-border p-4 rounded-xl space-y-3">
+            <div className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-2"><Workflow size={14} className="text-purple-500" /> N8N Workflows</span>
+              <button onClick={fetchN8nWorkflows} className="text-theme-text-muted hover:text-indigo-400">
+                <RefreshCw size={12} className={n8nLoadingWorkflows ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            {n8nLoadingWorkflows ? (
+              <p className="text-xs text-theme-text-muted italic">Loading workflows...</p>
+            ) : n8nWorkflows.length === 0 ? (
+              <p className="text-xs text-theme-text-muted italic">No workflows found or not configured.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {n8nWorkflows.map((w: any) => (
+                  <div key={w.id} className="bg-theme-input p-3 rounded-lg border border-theme-border flex flex-col gap-1 hover:border-purple-500/30 transition-colors">
+                    <span className="text-xs font-semibold text-theme-text-primary truncate">{w.name}</span>
+                    <span className={`text-[9px] w-fit px-1.5 py-0.5 rounded ${w.active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {w.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

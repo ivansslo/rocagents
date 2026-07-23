@@ -10,7 +10,7 @@ import { ExecutionHistoryModal } from './components/ExecutionHistoryModal';
 import { LiveTerminal } from './components/LiveTerminal';
 import { 
   Bot, Trash2, Settings, Minimize2, Maximize2, Menu, Sparkles, RefreshCw, 
-  MessageSquare, Sun, Moon, Palette, Check, Plus, Edit2, Terminal as TerminalIcon, HardDrive, Layout, ChevronRight, ChevronDown, X, Search, Copy, Clock, Bell, Volume2, Download, Folder, MoreHorizontal, Activity, BarChart2, FileDown, Upload, ShieldCheck, TrendingUp, CheckCircle2, XCircle, Globe, Brain, Target, Send, Compass
+  MessageSquare, Sun, Moon, Palette, Check, Plus, Edit2, Terminal as TerminalIcon, HardDrive, Layout, ChevronRight, ChevronDown, X, Search, Copy, Clock, Bell, Volume2, Download, Folder, MoreHorizontal, Activity, BarChart2, FileDown, Upload, ShieldCheck, TrendingUp, CheckCircle2, XCircle, Globe, Brain, Target, Send, Compass, Workflow
 } from 'lucide-react';
 
 export default function App() {
@@ -36,6 +36,13 @@ export default function App() {
   const [sshPrivateKey, setSshPrivateKey] = useState<string>('');
   const [sshLoading, setSshLoading] = useState<boolean>(false);
   const [sshSaveStatus, setSshSaveStatus] = useState<{ status: 'idle' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
+
+  // N8N State
+  const [n8nApiKey, setN8nApiKey] = useState<string>('');
+  const [n8nConfigured, setN8nConfigured] = useState<boolean>(false);
+  const [n8nLoading, setN8nLoading] = useState<boolean>(false);
+  const [n8nSaveStatus, setN8nSaveStatus] = useState<{ status: 'idle' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
+  const [isN8nReachable, setIsN8nReachable] = useState<boolean>(true);
 
   // Multi-Model State
   const [availableModels, setAvailableModels] = useState<any[]>([]);
@@ -359,6 +366,28 @@ db.addLog({
     }
   };
 
+  const fetchN8nStatus = async () => {
+    try {
+      const res = await fetch('/api/n8n/key');
+      if (res.ok) {
+        const data = await res.json();
+        setN8nConfigured(data.configured);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch n8n status:", err);
+    }
+  };
+
+  const checkN8nHealth = async () => {
+    try {
+      const res = await fetch('/api/n8n/health');
+      const data = await res.json();
+      setIsN8nReachable(data.reachable);
+    } catch (err) {
+      setIsN8nReachable(false);
+    }
+  };
+
   const saveSshKey = async (privKey: string, pubKey: string) => {
     setSshLoading(true);
     setSshSaveStatus({ status: 'idle', message: '' });
@@ -381,6 +410,30 @@ db.addLog({
       setSshSaveStatus({ status: 'error', message: err.message || 'Connection error.' });
     } finally {
       setSshLoading(false);
+    }
+  };
+
+  const saveN8nKey = async (apiKey: string) => {
+    setN8nLoading(true);
+    setN8nSaveStatus({ status: 'idle', message: '' });
+    try {
+      const res = await fetch('/api/n8n/key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setN8nSaveStatus({ status: 'success', message: data.message || 'n8n API Key saved successfully!' });
+        setN8nConfigured(true);
+        setN8nApiKey('');
+      } else {
+        setN8nSaveStatus({ status: 'error', message: data.error || 'Failed to save n8n API Key.' });
+      }
+    } catch (err: any) {
+      setN8nSaveStatus({ status: 'error', message: err.message || 'Connection error.' });
+    } finally {
+      setN8nLoading(false);
     }
   };
 
@@ -411,8 +464,15 @@ db.addLog({
     fetchGithubUpdates();
     fetchGithubOAuthUser();
     fetchSshKeyStatus();
+    fetchN8nStatus();
+    checkN8nHealth();
+    
     const interval = setInterval(fetchGithubUpdates, 30000); // Check every 30s
-    return () => clearInterval(interval);
+    const n8nInterval = setInterval(checkN8nHealth, 300000); // Check every 5m
+    return () => {
+      clearInterval(interval);
+      clearInterval(n8nInterval);
+    };
   }, []);
 
   // Github OAuth Auto Integrated (user request: Github Oauth Api belum Auto Integrated)
@@ -1488,7 +1548,7 @@ db.addLog({
               <button
                 onClick={() => {
                   // Toggle Info dropdown - shows Turbo Proxy, SSH daemon, auto save status
-                  const info = `ℹ️ Info - Turbo Proxy ACTIVE\n- Tailscale Mesh: 100.91.232.91 ubuntu-oci-1, roadfx 100.100.237.104, rocfx 100.106.22.112\n- SSH Daemon: port 8022 user ubuntu fingerprints 65:ff:dd:47:54:4e:8e:17:f0:83:1c:10:a1:1c:63:1c\n- Auto Save: Memories ON, Capabilities ON\n- Self-Development Save Auto: ENABLED\n- Tailscale Auto Integrated: YES`;
+                  const info = `ℹ️ Info - Turbo Proxy ACTIVE\n- Tailscale Mesh: 100.91.232.91 ubuntu-oci-1, roadfx 100.100.237.104, rocfx 100.106.22.112\n- SSH Daemon: port 8022 user ubuntu fingerprints 65:ff:dd:47:54:4e:8e:17:f0:83:1c:10:a1:1c:63:1c\n- Auto Save: Memories ON, Capabilities ON\n- Self-Development Save Auto: ENABLED\n- Tailscale Auto Integrated: YES\n- N8N Instance: ${isN8nReachable ? '✅ REACHABLE' : '❌ UNREACHABLE'}`;
                   alert(info);
                 }}
                 className="p-1.5 rounded-lg border text-xs transition-all cursor-pointer bg-indigo-600/20 border-indigo-500/40 text-indigo-300 font-bold hover:bg-indigo-600/30"
@@ -1933,6 +1993,63 @@ db.addLog({
                 }`}>
                   <span className="font-semibold">{sshSaveStatus.message}</span>
                   <button onClick={() => setSshSaveStatus({ status: 'idle', message: '' })} className="text-inherit opacity-75 hover:opacity-100">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* N8N Integration Panel */}
+            <div className="bg-theme-sidebar border border-theme-border p-5 rounded-2xl relative overflow-hidden mt-6">
+              <h3 className="text-sm font-bold text-theme-text-primary flex items-center gap-2 mb-1.5">
+                <Workflow size={18} className="text-purple-400" /> N8N Automation API
+              </h3>
+              <p className="text-xs text-theme-text-secondary mb-4 leading-relaxed">
+                Configure your n8n API Key to enable automated workflow execution from the workspace.
+              </p>
+
+              {n8nConfigured ? (
+                <div className="flex items-center justify-between gap-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3.5 py-3 rounded-xl text-xs font-bold">
+                  <span className="flex items-center gap-2">
+                    <Check size={14} className="text-emerald-400" />
+                    n8n API Key Configured
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setN8nConfigured(false)}
+                    className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <input
+                    type="password"
+                    placeholder="Enter n8n API Key"
+                    value={n8nApiKey}
+                    onChange={(e) => setN8nApiKey(e.target.value)}
+                    className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-xl px-3.5 py-2.5 text-xs font-mono focus:ring-1 focus:ring-purple-500 outline-none placeholder-theme-text-muted/60"
+                  />
+                  <button
+                    type="button"
+                    disabled={n8nLoading || !n8nApiKey.trim()}
+                    onClick={() => saveN8nKey(n8nApiKey)}
+                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800/40 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                  >
+                    {n8nLoading ? 'Saving...' : 'Save n8n API Key'}
+                  </button>
+                </div>
+              )}
+
+              {n8nSaveStatus.status !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center justify-between ${
+                  n8nSaveStatus.status === 'success' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+                }`}>
+                  <span className="font-semibold">{n8nSaveStatus.message}</span>
+                  <button onClick={() => setN8nSaveStatus({ status: 'idle', message: '' })} className="text-inherit opacity-75 hover:opacity-100">
                     <X size={13} />
                   </button>
                 </div>
