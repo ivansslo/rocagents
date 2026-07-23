@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import dns from "dns";
+import os from "os";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import cron from "node-cron";
@@ -18,12 +19,59 @@ if (dns && dns.setDefaultResultOrder) {
 dotenv.config();
 process.env.DISABLE_HMR = 'true';
 
+function ensureSshSetup() {
+  try {
+    const privateKey = db.getMemory("GITHUB_SSH_PRIVATE_KEY");
+    const publicKey = db.getMemory("GITHUB_SSH_PUBLIC_KEY");
+
+    if (!privateKey) {
+      console.log("[SSH SETUP] No custom GitHub SSH key found in database memories.");
+      return false;
+    }
+
+    const sshDir = path.join(os.homedir(), ".ssh");
+    if (!fs.existsSync(sshDir)) {
+      fs.mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+    }
+
+    const keyPath = path.join(sshDir, "id_rsa");
+    const pubPath = path.join(sshDir, "id_rsa.pub");
+    const configPath = path.join(sshDir, "config");
+
+    fs.writeFileSync(keyPath, privateKey.trim() + "\n", { mode: 0o600 });
+    if (publicKey) {
+      fs.writeFileSync(pubPath, publicKey.trim() + "\n", { mode: 0o644 });
+    } else {
+      // Derive simple mock/stub or write empty
+      fs.writeFileSync(pubPath, "", { mode: 0o644 });
+    }
+
+    // Configure SSH Config for GitHub
+    const sshConfig = `Host github.com
+  HostName github.com
+  User git
+  IdentityFile ${keyPath}
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+`;
+    fs.writeFileSync(configPath, sshConfig, { mode: 0o600 });
+    console.log("[SSH SETUP] Custom SSH keys and config configured successfully in ~/.ssh/");
+    return true;
+  } catch (err: any) {
+    console.error("[SSH SETUP ERROR] Failed to configure SSH keys:", err.message);
+    return false;
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
   
   // Initialize scheduler
   initScheduler();
+
+  // Ensure SSH key configuration is set up if stored
+  ensureSshSetup();
 
   // Increase payload limit for base64 images and large code payloads
   app.use(express.json({ limit: "50mb" }));
@@ -775,13 +823,84 @@ except Exception as e:
     }
   });
 
+  // GET GitHub SSH Key configuration status and keys
+  app.get("/api/github/ssh-key", (req, res) => {
+    try {
+      const privateKey = db.getMemory("GITHUB_SSH_PRIVATE_KEY") || "";
+      const publicKey = db.getMemory("GITHUB_SSH_PUBLIC_KEY") || "";
+      res.json({
+        configured: !!privateKey,
+        publicKey: publicKey || "No public key configured",
+        hasPrivateKey: !!privateKey,
+        privateKeyLength: privateKey.length
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST save GitHub SSH Key pair
+  app.post("/api/github/ssh-key", (req, res) => {
+    try {
+      const { privateKey, publicKey } = req.body || {};
+      if (!privateKey) {
+        return res.status(400).json({ error: "Private key is required" });
+      }
+      db.saveMemory("GITHUB_SSH_PRIVATE_KEY", privateKey, "Git_SSH");
+      db.saveMemory("GITHUB_SSH_PUBLIC_KEY", publicKey || "", "Git_SSH");
+      ensureSshSetup();
+      res.json({ status: "success", message: "GitHub SSH Keys saved and configured successfully!" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE/RESET GitHub SSH Key pair
+  app.post("/api/github/ssh-key/delete", async (req, res) => {
+    try {
+      db.deleteMemory("GITHUB_SSH_PRIVATE_KEY");
+      db.deleteMemory("GITHUB_SSH_PUBLIC_KEY");
+      try {
+        const { exec } = await import("child_process");
+        const { promisify } = await import("util");
+        const execAsync = promisify(exec);
+        await execAsync("rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub");
+        // Reset remote origin back to default https format
+        const { stdout: remoteUrl } = await execAsync("git remote get-url origin");
+        if (remoteUrl.includes("git@github.com:")) {
+          await execAsync("git remote set-url origin https://github.com/ivansslo/rocagents.git");
+        }
+      } catch (err: any) {
+        console.warn("[SSH DELETE WARNING] Failed to remove local keys or reset remote url:", err.message);
+      }
+      res.json({ status: "success", message: "GitHub SSH Keys removed and origin reset successfully." });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/github/pull", async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
       const execAsync = promisify(exec);
 
-      const { stdout, stderr } = await execAsync("git pull origin main", { timeout: 30000 });
+      const hasSsh = ensureSshSetup();
+      let pullCmd = "git pull origin main";
+      const env = { ...process.env };
+
+      if (hasSsh) {
+        console.log("[PULL] Custom SSH key detected, using SSH for pulling.");
+        try {
+          await execAsync("git remote set-url origin git@github.com:ivansslo/rocagents.git");
+        } catch (e: any) {
+          console.warn("[PULL WARNING] Failed to set remote URL to SSH format:", e.message);
+        }
+        pullCmd = "git pull origin main";
+        env.GIT_SSH_COMMAND = "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no";
+      }
+
+      const { stdout, stderr } = await execAsync(pullCmd, { timeout: 30000, env });
       
       // 1. Reload .env to pick up updated GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET / GITHUB_PAT / etc.
       try {
@@ -861,16 +980,31 @@ except Exception as e:
       const { promisify } = await import("util");
       const execAsync = promisify(exec);
 
-      const token = req.body?.token || process.env.GITHUB_PAT || process.env.GITHUB_OAUTH_TOKEN || process.env.GH_TOKEN;
-      if (!token) {
-        return res.status(400).json({ status: "error", error: "GitHub Personal Access Token (PAT) atau OAuth token diperlukan untuk push." });
-      }
-
       await execAsync('git config user.name "Ivan Ssl" && git config user.email "ivansuselo@gmail.com"');
       await execAsync('git add . && git commit -m "feat: Module WebSearching 4-tahap, Automated Backup, and UI enhancements" || true');
 
-      const pushCmd = `git push https://${token}@github.com/ivansslo/rocagents.git main --force`;
-      const { stdout, stderr } = await execAsync(pushCmd, { timeout: 45000 });
+      const hasSsh = ensureSshSetup();
+      let pushCmd = "";
+      const env = { ...process.env };
+
+      if (hasSsh) {
+        console.log("[PUSH] Custom SSH key detected, using SSH for pushing.");
+        try {
+          await execAsync("git remote set-url origin git@github.com:ivansslo/rocagents.git");
+        } catch (e: any) {
+          console.warn("[PUSH WARNING] Failed to set remote URL to SSH format:", e.message);
+        }
+        pushCmd = "git push origin main --force";
+        env.GIT_SSH_COMMAND = "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no";
+      } else {
+        const token = req.body?.token || process.env.GITHUB_PAT || process.env.GITHUB_OAUTH_TOKEN || process.env.GH_TOKEN;
+        if (!token) {
+          return res.status(400).json({ status: "error", error: "GitHub Personal Access Token (PAT), OAuth token, atau SSH key diperlukan untuk push." });
+        }
+        pushCmd = `git push https://${token}@github.com/ivansslo/rocagents.git main --force`;
+      }
+
+      const { stdout, stderr } = await execAsync(pushCmd, { timeout: 45000, env });
 
       res.json({ status: "success", message: "Push ke github.com/ivansslo/rocagents.git berhasil!", stdout: stdout || "", stderr: stderr || "" });
     } catch (err: any) {

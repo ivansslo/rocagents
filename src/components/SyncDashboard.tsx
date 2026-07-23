@@ -1494,66 +1494,6 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
         </div>
       </div>
 
-      {/* TermOnePlus Terminal Emulator Integration (https://gitlab.com/termapps/termoneplus) */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950/30 to-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xl">📱</span>
-              <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-                TermOnePlus Terminal <span className="text-blue-400 font-mono text-xs">(com.termoneplus) - Replaces termbin</span>
-              </h3>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">APK INSTALLED</span>
-              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-mono font-bold">LOGS IN CHAT</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono font-bold">PREFS SYNCED</span>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-              TermOnePlus (https://gitlab.com/termapps/termoneplus) full Linux terminal emulation. User installed APK, path di preference ada tempat untuk path. Ganti termbin.com:9999 jadi TermOnePlus — terminal + logs berjalan di chat saat agent eksekusi apapun, sesuai request cek yang belum berjalan.
-            </p>
-            <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
-              <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-blue-300 font-bold block text-[10px] uppercase">Initial Command</span>
-                <span className="text-slate-200">cd ~</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">From screenshot Preferences → Initial Command dialog</span>
-              </div>
-              <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-cyan-300 font-bold block text-[10px] uppercase">Shell Startup</span>
-                <span className="text-slate-200 text-[10px]">sh /data/data/moe.shizuku.privileged.api/files/start.</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">From screenshot Shell startup</span>
-              </div>
-              <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-amber-300 font-bold block text-[10px] uppercase">HOME Folder</span>
-                <span className="text-slate-200 text-[10px]">/data/user/0/com.termoneplus/app_HOME</span>
-                <span className="text-[9px] text-slate-500 block mt-0.5">From screenshot HOME folder</span>
-              </div>
-            </div>
-            <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
-              <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-blue-300 font-bold block text-[10px] uppercase">Package</span>
-                <span className="text-slate-200">com.termoneplus</span>
-              </div>
-              <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-amber-300 font-bold block text-[10px] uppercase">Path Preference</span>
-                <span className="text-slate-200">/storage/emulated/0/ (screenshot SimpleSSHD)</span>
-              </div>
-              <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-emerald-300 font-bold block text-[10px] uppercase">Logs In Chat</span>
-                <span className="text-slate-200">onProgress chunk + tool_result + Eye/EyeOff</span>
-              </div>
-            </div>
-            <div className="text-[10px] font-mono text-blue-300 pt-1">
-              TermOnePlus exec: <code className="bg-slate-950 px-1 rounded">TermOnePlus path /storage/emulated/0/ + logs collapsible di chat (Eye/EyeOff)</code> • Logs berjalan di chat saat agent eksekusi
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 flex-shrink-0">
-            <button type="button" onClick={async () => { const r = await fetch('/api/termoneplus/status'); const d = await r.json(); alert(JSON.stringify(d, null, 2).substring(0, 1500)); }} className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50">
-              <Terminal size={14} /> <span>Check TermOnePlus Prefs</span>
-            </button>
-            <a href="https://gitlab.com/termapps/termoneplus" target="_blank" className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold text-center">Open GitLab Repo</a>
-          </div>
-        </div>
-      </div>
-
       {/* SSH Daemon Auto-Detect (SimpleSSHD port 8022 ubuntu) */}
       <div className="bg-gradient-to-r from-slate-900 via-purple-950/30 to-slate-900 border border-purple-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

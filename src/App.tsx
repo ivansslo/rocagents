@@ -30,6 +30,13 @@ export default function App() {
   });
   const [retryOnError, setRetryOnError] = useState<boolean>(false);
 
+  // SSH Key Management States
+  const [sshConfigured, setSshConfigured] = useState<boolean>(false);
+  const [sshPublicKey, setSshPublicKey] = useState<string>('');
+  const [sshPrivateKey, setSshPrivateKey] = useState<string>('');
+  const [sshLoading, setSshLoading] = useState<boolean>(false);
+  const [sshSaveStatus, setSshSaveStatus] = useState<{ status: 'idle' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
+
   // Multi-Model State
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('ROC_MODEL') || 'openai/gpt-oss-120b');
@@ -337,9 +344,73 @@ db.addLog({
     }
   };
 
+  const fetchSshKeyStatus = async () => {
+    try {
+      const res = await fetch('/api/github/ssh-key');
+      if (res.ok) {
+        const data = await res.json();
+        setSshConfigured(data.configured);
+        if (data.configured) {
+          setSshPublicKey(data.publicKey);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch SSH key status:", err);
+    }
+  };
+
+  const saveSshKey = async (privKey: string, pubKey: string) => {
+    setSshLoading(true);
+    setSshSaveStatus({ status: 'idle', message: '' });
+    try {
+      const res = await fetch('/api/github/ssh-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey: privKey, publicKey: pubKey })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSshSaveStatus({ status: 'success', message: data.message || 'SSH Key saved successfully!' });
+        setSshConfigured(true);
+        setSshPublicKey(pubKey);
+        setSshPrivateKey('');
+      } else {
+        setSshSaveStatus({ status: 'error', message: data.error || 'Failed to save SSH Key.' });
+      }
+    } catch (err: any) {
+      setSshSaveStatus({ status: 'error', message: err.message || 'Connection error.' });
+    } finally {
+      setSshLoading(false);
+    }
+  };
+
+  const deleteSshKey = async () => {
+    if (!confirm('Are you sure you want to delete your configured SSH keys? This will reset your Git connection back to HTTPS.')) {
+      return;
+    }
+    setSshLoading(true);
+    try {
+      const res = await fetch('/api/github/ssh-key/delete', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setSshConfigured(false);
+        setSshPublicKey('');
+        setSshPrivateKey('');
+        setSshSaveStatus({ status: 'success', message: 'SSH Keys deleted successfully.' });
+      } else {
+        alert(data.error || 'Failed to delete SSH Keys.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Connection error.');
+    } finally {
+      setSshLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchGithubUpdates();
     fetchGithubOAuthUser();
+    fetchSshKeyStatus();
     const interval = setInterval(fetchGithubUpdates, 30000); // Check every 30s
     return () => clearInterval(interval);
   }, []);
@@ -1416,12 +1487,12 @@ db.addLog({
             <div className="relative">
               <button
                 onClick={() => {
-                  // Toggle Info dropdown - shows Turbo Proxy, TermOnePlus, SSH daemon, auto save status
-                  const info = `ℹ️ Info - Turbo Proxy ACTIVE\n- TermOnePlus: /storage/emulated/0/ (Initial: cd ~, HOME: /data/user/0/com.termoneplus/app_HOME, Startup: sh /data/data/moe.shizuku.privileged.api/files/start.)\n- Tailscale Mesh: 100.91.232.91 ubuntu-oci-1, roadfx 100.100.237.104, rocfx 100.106.22.112\n- SSH Daemon: port 8022 user ubuntu fingerprints 65:ff:dd:47:54:4e:8e:17:f0:83:1c:10:a1:1c:63:1c\n- Auto Save: Memories ON, Capabilities ON\n- Self-Development Save Auto: ENABLED\n- Tailscale Auto Integrated: YES`;
+                  // Toggle Info dropdown - shows Turbo Proxy, SSH daemon, auto save status
+                  const info = `ℹ️ Info - Turbo Proxy ACTIVE\n- Tailscale Mesh: 100.91.232.91 ubuntu-oci-1, roadfx 100.100.237.104, rocfx 100.106.22.112\n- SSH Daemon: port 8022 user ubuntu fingerprints 65:ff:dd:47:54:4e:8e:17:f0:83:1c:10:a1:1c:63:1c\n- Auto Save: Memories ON, Capabilities ON\n- Self-Development Save Auto: ENABLED\n- Tailscale Auto Integrated: YES`;
                   alert(info);
                 }}
                 className="p-1.5 rounded-lg border text-xs transition-all cursor-pointer bg-indigo-600/20 border-indigo-500/40 text-indigo-300 font-bold hover:bg-indigo-600/30"
-                title="Info - Turbo Proxy, TermOnePlus Prefs, Tailscale, Auto Save Status (ganti Notification di atas layar jadi Info)"
+                title="Info - Turbo Proxy, Tailscale, Auto Save Status (ganti Notification di atas layar jadi Info)"
               >
                 <span className="text-[12px] font-bold">ℹ️</span>
               </button>
@@ -1444,7 +1515,7 @@ db.addLog({
                 )}
               </button>
 
-              {/* Notification Popover Dropdown - Changed to Info (user request: Notification yang diatas layar ganti Info, plus Auto Save, Tailscale Auto Integrated, TermOnePlus prefs) */}
+              {/* Notification Popover Dropdown - Changed to Info (user request: Notification yang diatas layar ganti Info, plus Auto Save, Tailscale Auto Integrated) */}
               {showNotifyDropdown && (
                 <div 
                   onClick={(e) => e.stopPropagation()}
@@ -1464,7 +1535,7 @@ db.addLog({
                     </button>
                   </div>
 
-                  {/* Info Content - Turbo Proxy, TermOnePlus, Tailscale, Auto Save */}
+                  {/* Info Content - Turbo Proxy, Tailscale, Auto Save */}
                   <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
                     <div className="bg-emerald-950/30 border border-emerald-500/30 p-2.5 rounded-xl">
                       <div className="font-bold text-emerald-300 text-[11px] flex items-center gap-1.5">
@@ -1476,18 +1547,6 @@ db.addLog({
                       </div>
                       <div className="mt-1.5 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                         <div className="h-full bg-emerald-400 w-[98%] animate-pulse" />
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
-                      <div className="font-bold text-blue-300 text-[11px]">📱 TermOnePlus Terminal</div>
-                      <div className="text-[10px] text-slate-400 mt-1 space-y-0.5 font-mono">
-                        <div>Package: com.termoneplus</div>
-                        <div>Initial Command: cd ~</div>
-                        <div>HOME: /data/user/0/com.termoneplus/app_HOME</div>
-                        <div>Shell Startup: sh /data/data/moe.shizuku.privileged.api/files/start.</div>
-                        <div>Command Line: /system/bin/sh -</div>
-                        <div>Path: /storage/emulated/0/ (SimpleSSHD screenshot)</div>
                       </div>
                     </div>
 
@@ -1764,6 +1823,122 @@ db.addLog({
               </div>
             </div>
 
+            {/* GitHub SSH Key Management Panel */}
+            <div className="bg-theme-sidebar border border-theme-border p-5 rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+              <h3 className="text-sm font-bold text-theme-text-primary flex items-center gap-2 mb-1.5">
+                <ShieldCheck size={18} className="text-indigo-400" /> GitHub SSH Key Management (Kunci SSH)
+              </h3>
+              <p className="text-xs text-theme-text-secondary mb-4 leading-relaxed">
+                Configure custom SSH keys to enable fast, secure, passwordless authentication for local Git pull and push operations. When an SSH key is saved, ROCAgents will automatically execute all origin updates securely using SSH instead of standard HTTPS personal access tokens.
+              </p>
+
+              {sshConfigured ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3.5 py-3 rounded-xl text-xs font-bold">
+                    <span className="flex items-center gap-2">
+                      <Check size={14} className="text-emerald-400" />
+                      Active Connection: Registered over Secure SSH Key Authorization
+                    </span>
+                    <button
+                      type="button"
+                      onClick={deleteSshKey}
+                      disabled={sshLoading}
+                      className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                    >
+                      {sshLoading ? 'Removing...' : 'Delete Saved Keys'}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono text-theme-text-muted mb-1 uppercase tracking-wider">Configured Public Key Fingerprint (id_rsa.pub)</label>
+                    <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3">
+                      <code className="text-xs font-mono text-emerald-300 break-all select-all block max-h-24 overflow-y-auto">
+                        {sshPublicKey || 'ssh-rsa [Configured Key]'}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(sshPublicKey);
+                          alert("SSH Public Key copied to clipboard!");
+                        }}
+                        className="p-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-[10px] font-mono text-theme-text-muted uppercase tracking-wider">GitHub SSH Private Key (id_rsa)</label>
+                        <span className="text-[10px] text-red-400 font-semibold font-mono uppercase">Required</span>
+                      </div>
+                      <textarea
+                        rows={6}
+                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+                        value={sshPrivateKey}
+                        onChange={(e) => setSshPrivateKey(e.target.value)}
+                        className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-xl px-3.5 py-2.5 text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none placeholder-theme-text-muted/60 leading-relaxed"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-[10px] font-mono text-theme-text-muted uppercase tracking-wider">GitHub SSH Public Key (id_rsa.pub)</label>
+                        <span className="text-[10px] text-theme-text-muted font-mono uppercase">Recommended</span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... owner@rocagents"
+                        value={sshPublicKey}
+                        onChange={(e) => setSshPublicKey(e.target.value)}
+                        className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-xl px-3.5 py-2.5 text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none placeholder-theme-text-muted/60 leading-relaxed"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <button
+                      type="button"
+                      disabled={sshLoading || !sshPrivateKey.trim()}
+                      onClick={() => saveSshKey(sshPrivateKey, sshPublicKey)}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800/40 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      {sshLoading ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin" />
+                          <span>Configuring SSH Keys...</span>
+                        </>
+                      ) : (
+                        <span>Save & Register SSH Key</span>
+                      )}
+                    </button>
+
+                    <div className="text-[10px] text-theme-text-muted max-w-md">
+                      How to generate locally: <code className="bg-slate-950 border border-slate-800 p-0.5 px-1 rounded text-amber-300 font-mono">ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa</code> and add the public key to your GitHub Settings &gt; Keys.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {sshSaveStatus.status !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-xl border text-xs flex items-center justify-between ${
+                  sshSaveStatus.status === 'success' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+                }`}>
+                  <span className="font-semibold">{sshSaveStatus.message}</span>
+                  <button onClick={() => setSshSaveStatus({ status: 'idle', message: '' })} className="text-inherit opacity-75 hover:opacity-100">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div>
               <h3 className="text-lg font-semibold mb-1 flex items-center gap-2 text-theme-text-primary">
                 <MessageSquare size={20} className="text-indigo-500" /> Chat Settings
@@ -1795,6 +1970,42 @@ db.addLog({
                   <div>
                     <span className="text-sm font-medium text-theme-text-primary block">Auto-minimize Chat on 5m Inactivity</span>
                     <span className="text-[10px] text-theme-text-muted">Automatically collapse the chat panel to the bottom right and start a 5-minute restoration countdown after 5 minutes of no user activity.</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="border-t border-theme-border pt-6">
+              <h3 className="text-lg font-semibold mb-1 flex items-center gap-2 text-theme-text-primary">
+                <HardDrive size={20} className="text-indigo-500" /> Data Persistence
+              </h3>
+              <p className="text-xs text-theme-text-secondary mb-4">Manage how your background data is synchronized and auto-saved to the database.</p>
+              <div className="bg-theme-sidebar border border-theme-border p-5 rounded-xl space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input 
+                    type="checkbox" 
+                    checked={autoSaveMemoryEnabled} 
+                    onChange={(e) => setAutoSaveMemoryEnabled(e.target.checked)}
+                    className="rounded border-theme-border bg-theme-input text-indigo-600 focus:ring-indigo-500 h-4 w-4 transition-colors cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-theme-text-primary block">Auto-Save Cognitive Memories</span>
+                    <span className="text-[10px] text-theme-text-muted">Automatically save cognitive memories to the persistent database as they are formulated during session workflows.</span>
+                  </div>
+                </label>
+
+                <div className="h-px bg-theme-border/60" />
+
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input 
+                    type="checkbox" 
+                    checked={autoSaveCapEnabled} 
+                    onChange={(e) => setAutoSaveCapEnabled(e.target.checked)}
+                    className="rounded border-theme-border bg-theme-input text-indigo-600 focus:ring-indigo-500 h-4 w-4 transition-colors cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-theme-text-primary block">Auto-Save Self-Development Routines</span>
+                    <span className="text-[10px] text-theme-text-muted">Automatically save new capabilities, code snippets, and self-development routines to the persistent database.</span>
                   </div>
                 </label>
               </div>

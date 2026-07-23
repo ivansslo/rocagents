@@ -351,6 +351,20 @@ const DEFAULT_SCHEMA: DatabaseSchema = {
       }
     },
     {
+      name: "n8n_integration",
+      description: "Full access to n8n Automation Engine. Use this to trigger workflows, run active automation nodes, fetch workflow execution data, or post webhooks directly to n8n.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", description: "The n8n integration action: 'trigger_workflow', 'list_workflows', 'get_execution', 'send_webhook'." },
+          workflowId: { type: "string", description: "Optional: ID of the n8n workflow." },
+          webhookPath: { type: "string", description: "Optional: Webhook path/identifier for send_webhook action." },
+          payload: { type: "object", description: "Optional: JSON payload to pass to the n8n workflow or webhook." }
+        },
+        required: ["action"]
+      }
+    },
+    {
       name: "clerk_auth_manager",
       description: "Manage Clerk user authentication sessions and identity directory (Domain: awake-chicken-95.clerk.accounts.dev).",
       parameters: {
@@ -535,7 +549,7 @@ const DEFAULT_SCHEMA: DatabaseSchema = {
     },
     {
       name: "turbo_proxy_manager",
-      description: "Manage Turbo Proxy speed - build additional proxy from all connected clouds (OCI 161.118.253.28, Tailscale mesh 100.91.232.91/100.100.237.104/100.106.22.112, Cloudflare Workers hub.roadfx.biz.id, SimpleSSHD 8022, TermOnePlus). Speed: Sub-5ms FastCache. When Turbo Proxy active, only user models for upgrade. Implements auto refresh IP roadfx connected oci as localhost tailscale.",
+      description: "Manage Turbo Proxy speed - build additional proxy from all connected clouds (OCI 161.118.253.28, Tailscale mesh 100.91.232.91/100.100.237.104/100.106.22.112, Cloudflare Workers hub.roadfx.biz.id, SimpleSSHD 8022). Speed: Sub-5ms FastCache. When Turbo Proxy active, only user models for upgrade. Implements auto refresh IP roadfx connected oci as localhost tailscale.",
       parameters: {
         type: "object",
         properties: {
@@ -547,7 +561,7 @@ const DEFAULT_SCHEMA: DatabaseSchema = {
     },
     {
       name: "pastebin_js_client",
-      description: "Logs pastebin Api Wrapper NodeJS https://github.com/j3lte/pastebin-js - Pastebin.com API wrapper for NodeJS. Use for neat logs display in chat with pastebin.com. Replaces termbin.com and termoneplus. User request gunakan logs pastebin Api Wrapper NodeJS https://github.com/j3lte/pastebin-js",
+      description: "Logs pastebin Api Wrapper NodeJS https://github.com/j3lte/pastebin-js - Pastebin.com API wrapper for NodeJS. Use for neat logs display in chat with pastebin.com. Replaces termbin.com. User request gunakan logs pastebin Api Wrapper NodeJS https://github.com/j3lte/pastebin-js",
       parameters: {
         type: "object",
         properties: {
@@ -587,7 +601,7 @@ const DEFAULT_SCHEMA: DatabaseSchema = {
     },
     {
       name: "cmux_module",
-      description: "Module tambahan ivansslo/cmux - terminal multiplexer for TermOnePlus + SimpleSSHD. User request module tambahan; ivansslo/cmux. Manages panes, sessions, SSH multiplexing.",
+      description: "Module tambahan ivansslo/cmux - terminal multiplexer for local + SimpleSSHD sessions. User request module tambahan; ivansslo/cmux. Manages panes, sessions, SSH multiplexing.",
       parameters: {
         type: "object",
         properties: {
@@ -751,11 +765,17 @@ class Database {
           }));
         }
 
-        // Ensure default tools are present
+        // Ensure default tools are present and updated
         const existingNames = new Set(this.data.tools.map(t => t.name));
         DEFAULT_SCHEMA.tools.forEach(defaultTool => {
           if (!existingNames.has(defaultTool.name)) {
             this.data.tools.push(defaultTool);
+          } else {
+            // Update to latest schema definition
+            const idx = this.data.tools.findIndex(t => t.name === defaultTool.name);
+            if (idx !== -1) {
+              this.data.tools[idx] = defaultTool;
+            }
           }
         });
         
