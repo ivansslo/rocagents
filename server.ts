@@ -1467,6 +1467,28 @@ except Exception as e:
     });
   });
 
+  app.get("/api/modules/rocspace/status", (req, res) => {
+    const rocspacePath = path.join(process.cwd(), "rocspace");
+    const exists = fs.existsSync(rocspacePath);
+    res.json({
+      module: "rocspace",
+      status: exists ? "installed" : "missing",
+      path: rocspacePath,
+      branch: "main",
+      version: "v19.1.1",
+      cloudServices: {
+        commandCenter: "hub.roadfx.biz.id",
+        gateway: "api.roadfx.biz.id"
+      },
+      capabilities: [
+        "Cloudflare Worker v19.1.1 Command Center",
+        "Hermes Cloudflare Gateway Routing",
+        "Domain Router Integration",
+        "OCI Private Model Integration"
+      ]
+    });
+  });
+
   app.get("/api/ssh/status", async (req, res) => {
     try {
       const { exec } = await import("child_process");
