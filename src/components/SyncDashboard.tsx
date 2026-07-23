@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AppSyncInfo } from '../types';
 import { safeFetchJson } from '../lib/api';
+import n8nTemplateData from '../templates/n8n_web_query.json';
 
 interface MemoryItem {
   key: string;
@@ -88,11 +89,8 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
 
   const fetchN8nTemplate = async () => {
     try {
-      const res = await fetch('/src/templates/n8n_web_query.json');
-      if (res.ok) {
-        const data = await res.json();
-        setN8nTemplate(data);
-      }
+      // Use imported data instead of fetching to avoid path issues and Unexpected Token errors
+      setN8nTemplate(n8nTemplateData);
     } catch (err) {
       console.error('Failed to load n8n template:', err);
     }
