@@ -1,0 +1,98 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  
+  --color-theme-bg: var(--theme-bg);
+  --color-theme-sidebar: var(--theme-sidebar);
+  --color-theme-card: var(--theme-card);
+  --color-theme-input: var(--theme-input);
+  --color-theme-text-primary: var(--theme-text-primary);
+  --color-theme-text-secondary: var(--theme-text-secondary);
+  --color-theme-text-muted: var(--theme-text-muted);
+  --color-theme-border: var(--theme-border);
+  --color-theme-btn-active: var(--theme-btn-active);
+  --color-theme-btn-active-text: var(--theme-btn-active-text);
+  --color-theme-btn-hover: var(--theme-btn-hover);
+}
+
+/* Codex Web Signature Palette */
+:root {
+  --theme-bg: #020617; /* slate-950 */
+  --theme-sidebar: #090d16; /* slate-900 dark */
+  --theme-card: #0f172a; /* slate-900 */
+  --theme-input: #0f172a; /* slate-900 */
+  --theme-text-primary: #f8fafc; /* slate-50 */
+  --theme-text-secondary: #94a3b8; /* slate-400 */
+  --theme-text-muted: #64748b; /* slate-500 */
+  --theme-border: #1e293b; /* slate-800 */
+  --theme-btn-active: #1e293b;
+  --theme-btn-active-text: #6366f1; /* indigo-500 */
+  --theme-btn-hover: #1e293b/80;
+}
+
+.theme-light {
+  --theme-bg: #f8fafc;
+  --theme-sidebar: #ffffff;
+  --theme-card: #ffffff;
+  --theme-input: #ffffff;
+  --theme-text-primary: #0f172a;
+  --theme-text-secondary: #475569;
+  --theme-text-muted: #64748b;
+  --theme-border: #e2e8f0;
+  --theme-btn-active: #e2e8f0;
+  --theme-btn-active-text: #4f46e5;
+  --theme-btn-hover: #f1f5f9;
+}
+
+.theme-contrast {
+  --theme-bg: #000000;
+  --theme-sidebar: #000000;
+  --theme-card: #000000;
+  --theme-input: #000000;
+  --theme-text-primary: #ffffff;
+  --theme-text-secondary: #facc15;
+  --theme-text-muted: #ffffff;
+  --theme-border: #ffffff;
+  --theme-btn-active: #ffffff;
+  --theme-btn-active-text: #000000;
+  --theme-btn-hover: #262626;
+}
+
+@layer base {
+  html {
+    height: -webkit-fill-available;
+    min-height: 100dvh;
+  }
+  body {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    @apply bg-theme-bg text-theme-text-primary transition-colors duration-150;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-x: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    /* ARM Mali-G72 / CPH1823 Hardware Acceleration */
+    transform: translate3d(0, 0, 0);
+    will-change: transform, opacity;
+  }
+}
+
+/* Scrollbar & Performance optimizations */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
