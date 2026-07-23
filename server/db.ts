@@ -846,6 +846,25 @@ class Database {
     this.save();
   }
 
+  clearChatSessions() {
+    this.data.chatSessions = [];
+    this.save();
+  }
+
+  optimizeMemories() {
+    if (!this.data.memories) return;
+    const unique = new Map<string, any>();
+    this.data.memories.forEach(m => {
+      // Normalize key for deduplication
+      const normKey = m.key.toLowerCase().trim();
+      if (!unique.has(normKey) || m.timestamp > unique.get(normKey).timestamp) {
+        unique.set(normKey, m);
+      }
+    });
+    this.data.memories = Array.from(unique.values());
+    this.save();
+  }
+
   getLogs() {
     return this.data.logs;
   }

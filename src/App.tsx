@@ -1099,6 +1099,20 @@ db.addLog({
     }
   };
 
+  // Delete ALL chat sessions
+  const deleteAllSessions = async () => {
+    if (!confirm("Are you sure you want to purge ALL chat sessions? This cannot be undone.")) return;
+    try {
+      const response = await fetch('/api/chat-sessions', { method: 'DELETE' });
+      if (response.ok) {
+        setSessions([]);
+        await createNewSession("New Workspace");
+      }
+    } catch (err) {
+      console.error("Failed to purge sessions:", err);
+    }
+  };
+
   // Start inline rename session
   const startRenameSession = (id: string, currentTitle: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1306,7 +1320,16 @@ db.addLog({
         {/* Chat Sessions List (History) matching screenshot design */}
         <div className="flex-1 overflow-y-auto mb-4 pr-1 space-y-3 min-h-0">
           <div className="space-y-1">
-            <span className="text-[11px] font-medium text-slate-500 px-2 block mb-1">Today</span>
+            <div className="flex items-center justify-between px-2 mb-1">
+              <span className="text-[11px] font-medium text-slate-500 block">Today</span>
+              <button 
+                onClick={deleteAllSessions}
+                className="text-[10px] text-red-500/60 hover:text-red-400 font-mono font-bold px-1.5 py-0.5 rounded border border-red-500/20 hover:bg-red-500/10 transition-all"
+                title="Purge All Sessions"
+              >
+                PURGE ALL
+              </button>
+            </div>
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               const isRenaming = renamingSessionId === session.id;

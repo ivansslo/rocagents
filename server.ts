@@ -2037,7 +2037,53 @@ except Exception as e:
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  // Session deletion endpoints
+app.delete("/api/sessions/all", async (req, res) => {
+  try {
+    const fs = await import("fs/promises");
+    const sessionsDir = path.join(process.cwd(), "sessions");
+    const dirs = await fs.readdir(sessionsDir);
+    for (const dir of dirs) {
+      if (dir.startsWith("session_")) {
+        await fs.rm(path.join(sessionsDir, dir), { recursive: true, force: true });
+      }
+    }
+    res.json({ status: "success", message: "All sessions purged" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/sessions/:id", async (req, res) => {
+  try {
+    const fs = await import("fs/promises");
+    const sessionPath = path.join(process.cwd(), "sessions", req.params.id);
+    await fs.rm(sessionPath, { recursive: true, force: true });
+    res.json({ status: "success", message: `Session ${req.params.id} deleted` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/chat-sessions", (req, res) => {
+  try {
+    db.clearChatSessions();
+    res.json({ status: "success", message: "All chat sessions purged" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/cognitive/optimize", (req, res) => {
+  try {
+    db.optimizeMemories();
+    res.json({ status: "success", message: "Cognitive deduplication complete" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 ROCAgents Server running on http://0.0.0.0:${PORT}`);
   });
 }
