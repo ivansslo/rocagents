@@ -8,6 +8,7 @@ import { UpgradePanel } from './components/UpgradePanel';
 import { FileArchive } from './components/FileArchive';
 import { ExecutionHistoryModal } from './components/ExecutionHistoryModal';
 import { LiveTerminal } from './components/LiveTerminal';
+import { PerformanceTrendChart } from './components/PerformanceTrendChart';
 import { 
   Bot, Trash2, Settings, Minimize2, Maximize2, Menu, Sparkles, RefreshCw, 
   MessageSquare, Sun, Moon, Palette, Check, Plus, Edit2, Terminal as TerminalIcon, HardDrive, Layout, ChevronRight, ChevronDown, X, Search, Copy, Clock, Bell, Volume2, Download, Folder, MoreHorizontal, Activity, BarChart2, FileDown, Upload, ShieldCheck, TrendingUp, CheckCircle2, XCircle
@@ -2089,6 +2090,12 @@ db.addLog({
                           </div>
                         </div>
                       </div>
+
+                      {/* Daily Execution Success Rate Trend Line Visualization */}
+                      <PerformanceTrendChart
+                        capabilities={selfCapabilities}
+                        executionLogs={capabilityExecutionLogs}
+                      />
 
                       {/* Routine Success Breakdown Table / Cards */}
                       <div className="bg-theme-sidebar border border-theme-border rounded-xl p-4 space-y-3">
