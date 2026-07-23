@@ -899,6 +899,28 @@ class Database {
     this.save();
   }
 
+  cleanupMemories(): string[] {
+    if (!this.data.memories) return [];
+    const uniqueMemories: any[] = [];
+    const seenKeys = new Set();
+    const duplicates: string[] = [];
+
+    for (const m of this.data.memories) {
+      if (seenKeys.has(m.key)) {
+        duplicates.push(m.key);
+      } else {
+        seenKeys.add(m.key);
+        uniqueMemories.push(m);
+      }
+    }
+
+    if (duplicates.length > 0) {
+      this.data.memories = uniqueMemories;
+      this.save();
+    }
+    return duplicates;
+  }
+
   getSelfCapabilities(): SelfCapability[] {
     return this.data.selfCapabilities || [];
   }

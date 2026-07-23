@@ -393,12 +393,34 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
       const response = await fetch('/api/memories');
       if (response.ok) {
         const data = await response.json();
-        setMemories(data);
+        // UI Side Deduplication
+        const unique = data.reduce((acc: any[], current: any) => {
+          const x = acc.find(item => item.key === current.key);
+          if (!x) {
+            return acc.concat([current]);
+          } else {
+            return acc;
+          }
+        }, []);
+        setMemories(unique);
       }
     } catch (err) {
       console.error("Failed to fetch memories:", err);
     } finally {
       setMemLoading(false);
+    }
+  };
+
+  const handleCleanupDuplicates = async () => {
+    try {
+      const res = await fetch('/api/memories/cleanup', { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(data.removedCount ? `Removed ${data.removedCount} duplicates.` : 'No duplicates found.', 'success');
+        fetchMemories();
+      }
+    } catch (err) {
+      showToast('Cleanup failed.', 'error');
     }
   };
 
@@ -2118,14 +2140,24 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
               Advanced knowledge-base memory sync routed dynamically from **ROC Agents Route Hub**, **WebVirtCloud**, and local kernel telemetry.
             </p>
           </div>
-          <button
-            disabled={isCompacting}
-            onClick={handleConsolidateSynapses}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer select-none self-start"
-          >
-            <Sparkles size={14} className={isCompacting ? "animate-spin" : ""} />
-            {isCompacting ? "Compacting Synapses..." : "Consolidate Memory Synapses"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCleanupDuplicates}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer select-none self-start"
+              title="Remove duplicate memory keys from database"
+            >
+              <Trash2 size={14} />
+              <span>Cleanup Duplicates</span>
+            </button>
+            <button
+              disabled={isCompacting}
+              onClick={handleConsolidateSynapses}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer select-none self-start"
+            >
+              <Sparkles size={14} className={isCompacting ? "animate-spin" : ""} />
+              {isCompacting ? "Compacting Synapses..." : "Consolidate Memory Synapses"}
+            </button>
+          </div>
         </div>
 
         {/* Consolidation Console Logs */}

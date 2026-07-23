@@ -536,6 +536,18 @@ except Exception as e:
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // DELETE cleanup duplicate memories
+  app.delete("/api/memories/cleanup", (req, res) => {
+    try {
+      const removed = db.cleanupMemories();
+      if (removed.length > 0) {
+        res.json({ status: "success", removedCount: removed.length, removed });
+      } else {
+        res.json({ status: "success", message: "No duplicates found" });
+      }
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   app.delete("/api/memories/:key", (req, res) => {
     try {
       db.deleteMemory(req.params.key);
