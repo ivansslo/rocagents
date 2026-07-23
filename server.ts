@@ -782,7 +782,50 @@ except Exception as e:
       const execAsync = promisify(exec);
 
       const { stdout, stderr } = await execAsync("git pull origin main", { timeout: 30000 });
-      res.json({ status: "success", stdout: stdout || "Pull successful", stderr: stderr || "" });
+      
+      // 1. Reload .env to pick up updated GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET / GITHUB_PAT / etc.
+      try {
+        dotenv.config({ override: true });
+      } catch (dotenvErr: any) {
+        console.warn("[dotenv] Failed to reload .env config:", dotenvErr);
+      }
+
+      // 2. Synchronize Local OAuth App if token exists
+      let oauthSyncMessage = "No active GitHub token configured for post-pull synchronization.";
+      let oauthUser = null;
+
+      const token = process.env.GITHUB_OAUTH_TOKEN || process.env.GITHUB_PAT;
+      if (token) {
+        try {
+          const userResp = await fetch("https://api.github.com/user", {
+            headers: { "Authorization": `Bearer ${token}`, "User-Agent": "ROCAgents-App" }
+          });
+          if (userResp.ok) {
+            const userData = await userResp.json();
+            oauthUser = userData;
+            const timestamp = new Date().toISOString();
+            db.saveMemory(
+              "GitHub_OAuth_ROCAgents",
+              `GitHub App ROCAgents (Client ID: ${process.env.GITHUB_CLIENT_ID || "Ov23litvasZbgpCiNHIg"}) auto-synced after Git Pull for user ${userData.login} (${userData.name || 'Ivan Ssl'}). Synced at ${timestamp}.`,
+              "GitHub_OAuth"
+            );
+            oauthSyncMessage = `GitHub OAuth App 'ROCAgents' successfully synchronized for user ${userData.login}!`;
+          } else {
+            oauthSyncMessage = "Failed to authenticate with GitHub API using current token during post-pull sync.";
+          }
+        } catch (syncErr: any) {
+          oauthSyncMessage = `Error during post-pull OAuth sync: ${syncErr.message}`;
+        }
+      }
+
+      res.json({
+        status: "success",
+        stdout: stdout || "Pull successful",
+        stderr: stderr || "",
+        oauthSyncMessage,
+        oauthUser,
+        clientId: process.env.GITHUB_CLIENT_ID || "Ov23litvasZbgpCiNHIg"
+      });
     } catch (err: any) {
       res.status(500).json({ status: "error", error: err.message });
     }

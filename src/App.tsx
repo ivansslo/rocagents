@@ -377,8 +377,13 @@ db.addLog({
     try {
       const res = await fetch('/api/github/pull', { method: 'POST' });
       const data = await res.json();
-      alert(`Git Pull Output:\n${data.stdout || data.stderr || 'Pull completed'}`);
+      let msg = `Git Pull Output:\n${data.stdout || data.stderr || 'Pull completed'}`;
+      if (data.oauthSyncMessage) {
+        msg += `\n\n🔑 [OAuth App Sync]: ${data.oauthSyncMessage}`;
+      }
+      alert(msg);
       await fetchGithubUpdates();
+      await fetchGithubOAuthUser();
     } catch (err: any) {
       alert(`Git Pull Error: ${err.message}`);
     } finally {
