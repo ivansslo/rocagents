@@ -148,6 +148,7 @@ db.addLog({
   const [webSearchResult, setWebSearchResult] = useState<any>(null);
   const [webSearchStages, setWebSearchStages] = useState<any>(null);
   const [webSearchActiveStageTab, setWebSearchActiveStageTab] = useState<'all' | 'analisa' | 'pemahaman' | 'kesimpulan' | 'penerapan'>('all');
+  const [webSearchError, setWebSearchError] = useState<string | null>(null);
 
   const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('ROC_USER_EMAIL') || 'ivansuselo@gmail.com');
   const [userGithub, setUserGithub] = useState<string>(() => localStorage.getItem('ROC_USER_GITHUB') || 'ivansslo');
@@ -206,6 +207,16 @@ db.addLog({
       return () => clearTimeout(timer);
     }
   }, [memories, selfCapabilities, autoBackupEnabled]);
+
+  // WebSearch Error Auto-Clear Effect
+  useEffect(() => {
+    if (webSearchError) {
+      const timer = setTimeout(() => {
+        setWebSearchError(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [webSearchError]);
 
   // Import / Restore Backup Handler
   const handleImportBackupJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -738,6 +749,7 @@ db.addLog({
     setWebSearchLoading(true);
     setWebSearchResult(null);
     setWebSearchStages(null);
+    setWebSearchError(null);
     try {
       const res = await fetch('/api/web-search', {
         method: 'POST',
@@ -755,10 +767,14 @@ db.addLog({
           setWebSearchStages(data.framework_stages);
         }
       } else {
-        console.error("Web search failed:", data.error || data.message);
+        const errorMsg = data.error || data.message || "Pencarian web gagal diproses oleh server.";
+        console.error("Web search failed:", errorMsg);
+        setWebSearchError(errorMsg);
       }
-    } catch (err) {
+    } catch (err: any) {
+      const errorMsg = err?.message || "Koneksi terputus atau server gagal merespon permintaan pencarian web.";
       console.error("Failed to execute enhanced web search:", err);
+      setWebSearchError(errorMsg);
     } finally {
       setWebSearchLoading(false);
     }
@@ -2271,6 +2287,26 @@ db.addLog({
                     </div>
                   ) : capViewMode === 'websearch' ? (
                     <div className="space-y-4 mb-6 animate-fade-in">
+                      {/* Error Toast Notification */}
+                      {webSearchError && (
+                        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-200 p-4 rounded-xl flex items-start justify-between gap-3 shadow-lg animate-fade-in">
+                          <div className="flex items-start gap-2.5">
+                            <XCircle className="text-rose-500 mt-0.5 flex-shrink-0" size={16} />
+                            <div>
+                              <p className="font-bold text-xs text-rose-400">Pencarian Web Gagal</p>
+                              <p className="text-xs text-rose-200/80 mt-0.5 leading-relaxed">{webSearchError}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setWebSearchError(null)}
+                            className="text-rose-400 hover:text-rose-200 hover:bg-rose-500/20 rounded p-1 transition-colors flex-shrink-0"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )}
+
                       {/* WebSearch Query Form */}
                       <div className="bg-theme-sidebar border border-theme-border p-4 rounded-xl space-y-4">
                         <div className="flex items-center justify-between border-b border-theme-border pb-3">

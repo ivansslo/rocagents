@@ -21,6 +21,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const [loading, setLoading] = useState(true);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
+  const [appSearchQuery, setAppSearchQuery] = useState('');
   const [inspectType, setInspectType] = useState<'files' | 'endpoints' | 'logs'>('files');
   const [inspectData, setInspectData] = useState<any>(null);
   const [inspectLoading, setInspectLoading] = useState(false);
@@ -87,6 +88,12 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   // RoadQwen & Qwen Cloud State
   const [qwenInfo, setQwenInfo] = useState<any>(null);
 
+  // Snowflake Cloud Warehouse Integration State
+  const [snowflakeInfo, setSnowflakeInfo] = useState<any>(null);
+  const [snowflakeLoading, setSnowflakeLoading] = useState(false);
+  const [newSnowflakeModelName, setNewSnowflakeModelName] = useState("");
+  const [newSnowflakeModelCmd, setNewSnowflakeModelCmd] = useState("");
+
   // RocSpace Monorepo State
   const [rocspaceInfo, setRocspaceInfo] = useState<any>(null);
 
@@ -104,6 +111,18 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
       }
     } catch (err) {
       console.error('Failed to fetch OCI status:', err);
+    }
+  };
+
+  const fetchSnowflakeStatus = async () => {
+    try {
+      const res = await fetch('/api/snowflake/status');
+      if (res.ok) {
+        const data = await res.json();
+        setSnowflakeInfo(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Snowflake status:', err);
     }
   };
 
@@ -288,6 +307,18 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
       const response = await fetch('/api/synced-apps');
       const data = await response.json();
       setApps(data);
+      if (data && data.length > 0 && !selectedAppId) {
+        setSelectedAppId(data[0].id);
+        try {
+          const resInspect = await fetch(`/api/synced-apps/${data[0].id}/inspect?type=files`);
+          if (resInspect.ok) {
+            const inspect = await resInspect.json();
+            setInspectData(inspect);
+          }
+        } catch (e) {
+          console.error("Initial app inspect failed:", e);
+        }
+      }
     } catch (err) {
       console.error("Failed to load apps:", err);
     } finally {
@@ -329,6 +360,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
     fetchTailscaleStatus();
     fetchApertureStatus();
     fetchOciShellStatus();
+    fetchSnowflakeStatus();
   }, []);
 
   const handleSync = async (id: string) => {
@@ -890,6 +922,140 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
           >
             <RefreshCw size={14} />
             <span>Sync to Harness Vault</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Snowflake Cloud Warehouse Integration Banner Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl">❄️</span>
+              <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+                Snowflake Cloud Warehouse <span className="text-sky-400 text-xs font-mono">(Account: {snowflakeInfo?.account || 'mh46193'})</span>
+              </h3>
+              <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-mono font-bold">
+                {snowflakeInfo?.accessType || 'AI-COGNITIVE-FULL-ACCESS'}
+              </span>
+            </div>
+            
+            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+              Fully integrated with Snowflake AWS AP-Southeast-3 region instance. The central AI agent has <b>full administrative control</b> to manage functions, retrieve metadata, deploy models, and optimize warehouse performance based on direct owner directives.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1 font-mono text-[11px]">
+              <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/80">
+                <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Region</span>
+                <span className="text-sky-300 font-semibold">{snowflakeInfo?.region || 'ap-southeast-3.aws'}</span>
+              </div>
+              <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/80">
+                <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Warehouse</span>
+                <span className="text-sky-300 font-semibold">{snowflakeInfo?.warehouse || 'ROC_WH_LARGE'}</span>
+              </div>
+              <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/80">
+                <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Database / Schema</span>
+                <span className="text-sky-300 font-semibold">{snowflakeInfo?.database || 'ROC_DB'} / {snowflakeInfo?.schema || 'PUBLIC'}</span>
+              </div>
+              <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/80">
+                <span className="text-slate-400 block text-[9px] uppercase tracking-wider">API Authentication</span>
+                <span className="text-emerald-400 font-semibold">Active Key</span>
+              </div>
+            </div>
+
+            {/* Models list inside Snowflake */}
+            <div className="space-y-1.5 pt-2">
+              <span className="text-xs text-slate-300 font-mono font-bold block flex items-center gap-1.5">
+                <Brain size={13} className="text-sky-400" />
+                Active Custom Models inside Snowflake Cortex:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {(snowflakeInfo?.models || ["Snowflake-Cortex-Roc-v1", "Predictive-Robotic-Maintenance-v4"]).map((model: string, idx: number) => (
+                  <span key={idx} className="bg-slate-950/80 text-sky-200 border border-sky-500/20 px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 shadow-sm">
+                    <Sparkles size={11} className="text-sky-400 animate-pulse" />
+                    {model}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Model Generator Form */}
+            <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/80 space-y-3 mt-4">
+              <span className="text-xs font-bold text-slate-200 font-mono block">Build & Deploy New Cortex Model inside Snowflake</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-mono text-slate-400 block">Model Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. roc-joint-fault-detector"
+                    value={newSnowflakeModelName}
+                    onChange={(e) => setNewSnowflakeModelName(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs px-2.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono placeholder:text-slate-600"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-mono text-slate-400 block">Owner Directive / Instruction</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Train prediction model on battery telemetry"
+                    value={newSnowflakeModelCmd}
+                    onChange={(e) => setNewSnowflakeModelCmd(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs px-2.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={snowflakeLoading || !newSnowflakeModelName}
+                onClick={async () => {
+                  try {
+                    setSnowflakeLoading(true);
+                    const res = await fetch('/api/snowflake/models', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: newSnowflakeModelName, command: newSnowflakeModelCmd })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      alert(data.message);
+                      setNewSnowflakeModelName("");
+                      setNewSnowflakeModelCmd("");
+                      fetchSnowflakeStatus();
+                      fetchMemories();
+                    } else {
+                      alert("Gagal deploy: " + (data.error || "Kesalahan server"));
+                    }
+                  } catch (err: any) {
+                    alert("Build Error: " + err.message);
+                  } finally {
+                    setSnowflakeLoading(false);
+                  }
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-sky-600 to-sky-700 hover:from-sky-500 hover:to-sky-600 disabled:opacity-50 text-white border border-sky-400/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Plus size={13} />
+                <span>{snowflakeLoading ? "Building Model..." : "Deploy Model to Warehouse"}</span>
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/snowflake/sync', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message || "Snowflake synchronized!");
+                fetchSnowflakeStatus();
+                fetchMemories();
+              } catch (e: any) {
+                alert("Snowflake Sync Error: " + e.message);
+              }
+            }}
+            className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white border border-sky-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-sky-950/50 flex-shrink-0"
+          >
+            <RefreshCw size={14} />
+            <span>Sync to Snowflake</span>
           </button>
         </div>
       </div>
@@ -1587,211 +1753,274 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
         </div>
       </div>
 
-      {/* Sync Status Cards Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs uppercase font-mono font-bold tracking-wider text-theme-text-muted">Ecosystem Directory Index ({apps.length} Applications)</h2>
-          <span className="text-xs text-theme-text-muted font-mono">{apps.filter(a => a.status === 'synced').length}/{apps.length} Synced</span>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {apps.map(app => {
-            const isSyncing = app.status === 'syncing' || syncingId === app.id;
-            const isSynced = app.status === 'synced';
-            
-            return (
-              <div key={app.id} className="bg-theme-card border border-theme-border rounded-xl p-5 flex flex-col justify-between hover:border-indigo-500/50 transition-colors">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-theme-bg border border-theme-border rounded-lg text-theme-text-primary">
-                        <Server size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-theme-text-primary text-base flex items-center gap-2">
-                          {app.name}
-                          {app.id === 'roc-agentsroute' && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold font-mono bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded">Core Hub</span>
-                          )}
-                        </h3>
-                        <span className="text-xs font-mono text-theme-text-muted">{app.id}</span>
-                      </div>
-                    </div>
-
-                    {/* Status Badges */}
-                    {isSyncing ? (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20 animate-pulse">
-                        <RefreshCw size={12} className="animate-spin" />
-                        Syncing
-                      </span>
-                    ) : isSynced ? (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-                        <CheckCircle2 size={12} />
-                        Synced
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-theme-btn-active text-theme-text-secondary rounded-full border border-theme-border">
-                        <AlertCircle size={12} />
-                        Not Synced
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-theme-text-secondary line-clamp-2 mb-4 leading-relaxed">
-                    {app.description}
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-2 bg-theme-bg/50 p-2.5 rounded-lg border border-theme-border/55 text-center mb-4">
-                    <div>
-                      <p className="text-[10px] uppercase font-mono text-theme-text-muted tracking-wider">Files</p>
-                      <p className="text-sm font-semibold text-theme-text-primary mt-0.5">{app.filesCount}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-mono text-theme-text-muted tracking-wider">Components</p>
-                      <p className="text-sm font-semibold text-theme-text-primary mt-0.5">{app.componentsCount}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-mono text-theme-text-muted tracking-wider">APIs</p>
-                      <p className="text-sm font-semibold text-theme-text-primary mt-0.5">{app.apiEndpointsCount}</p>
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-theme-text-secondary font-mono flex items-center gap-1.5 mb-5 overflow-hidden">
-                    <span className="w-1.5 h-1.5 rounded-full bg-theme-text-muted flex-shrink-0" />
-                    <span className="truncate">Endpoint: <a href={app.url} className="hover:underline text-indigo-400" target="_blank" rel="noopener noreferrer">{app.url}</a></span>
-                    {app.lastSyncedAt && (
-                      <span className="text-theme-text-muted block sm:inline ml-auto flex-shrink-0">
-                        Synced: {new Date(app.lastSyncedAt).toLocaleTimeString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    disabled={isSyncing}
-                    onClick={() => handleSync(app.id)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active disabled:text-theme-text-muted text-white font-medium py-2 px-3 rounded-lg text-sm transition-colors cursor-pointer select-none"
-                  >
-                    <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-                    {isSyncing ? "Syncing..." : isSynced ? "Re-sync App" : "Sync Now"}
-                  </button>
-
-                  {isSynced && (
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => handleInspect(app.id, 'files')}
-                        title="Inspect files"
-                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${selectedAppId === app.id && inspectType === 'files' ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-400' : 'bg-theme-bg border-theme-border text-theme-text-muted hover:text-theme-text-primary'}`}
-                      >
-                        <FileCode size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleInspect(app.id, 'endpoints')}
-                        title="Inspect API Endpoints"
-                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${selectedAppId === app.id && inspectType === 'endpoints' ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-400' : 'bg-theme-bg border-theme-border text-theme-text-muted hover:text-theme-text-primary'}`}
-                      >
-                        <Radio size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleInspect(app.id, 'logs')}
-                        title="Inspect sync logs"
-                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${selectedAppId === app.id && inspectType === 'logs' ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-400' : 'bg-theme-bg border-theme-border text-theme-text-muted hover:text-theme-text-primary'}`}
-                      >
-                        <Terminal size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Inspect View Details */}
-      {selectedAppId && (
-        <div className="bg-theme-card border border-theme-border rounded-xl p-5">
-          <div className="flex items-center justify-between border-b border-theme-border pb-3 mb-4 gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Database size={18} className="text-indigo-400" />
-              <h3 className="font-bold text-theme-text-primary">
-                Inspect Indexes: <span className="text-indigo-400">{apps.find(a => a.id === selectedAppId)?.name}</span>
-              </h3>
+      {/* AI Studio Ecosystem Orchestrator - Unified Dashboard */}
+      <div className="bg-theme-card border border-theme-border rounded-2xl shadow-2xl overflow-hidden mb-6">
+        {/* Hub Header */}
+        <div className="p-5 border-b border-theme-border bg-theme-bg/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-600/10 border border-indigo-500/25 rounded-xl text-indigo-400">
+              <Radio size={20} className="animate-pulse" />
             </div>
-            <div className="flex gap-1">
-              <button
-                onClick={() => handleInspect(selectedAppId, 'files')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${inspectType === 'files' ? 'bg-indigo-600 text-white' : 'text-theme-text-secondary hover:text-theme-text-primary bg-theme-bg border border-theme-border'}`}
-              >
-                Files
-              </button>
-              <button
-                onClick={() => handleInspect(selectedAppId, 'endpoints')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${inspectType === 'endpoints' ? 'bg-indigo-600 text-white' : 'text-theme-text-secondary hover:text-theme-text-primary bg-theme-bg border border-theme-border'}`}
-              >
-                API Routes
-              </button>
-              <button
-                onClick={() => handleInspect(selectedAppId, 'logs')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${inspectType === 'logs' ? 'bg-indigo-600 text-white' : 'text-theme-text-secondary hover:text-theme-text-primary bg-theme-bg border border-theme-border'}`}
-              >
-                Sync Logs
-              </button>
+            <div>
+              <h3 className="font-bold text-theme-text-primary text-base flex items-center gap-2">
+                Google AI Studio Unified Ecosystem
+              </h3>
+              <p className="text-xs text-theme-text-secondary mt-0.5">
+                Consolidated interface for multi-index application synchronizations and modular ecosystem indexes.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-xs font-mono text-theme-text-muted bg-theme-bg px-2.5 py-1 rounded-md border border-theme-border">
+              {apps.filter(a => a.status === 'synced').length}/{apps.length} Synced
+            </span>
+            <button
+              type="button"
+              disabled={syncingId !== null}
+              onClick={async () => {
+                for (const app of apps) {
+                  await handleSync(app.id);
+                }
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <RefreshCw size={12} className={syncingId ? "animate-spin" : ""} />
+              Sync All Apps
+            </button>
+          </div>
+        </div>
+
+        {/* Hub Main Console */}
+        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[420px] divide-y md:divide-y-0 md:divide-x divide-theme-border/60">
+          {/* Left Panel: App Selector List */}
+          <div className="md:col-span-4 bg-theme-bg/10 flex flex-col max-h-[500px] overflow-hidden">
+            {/* Search Input */}
+            <div className="p-3 border-b border-theme-border/60">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Cari aplikasi..."
+                  value={appSearchQuery}
+                  onChange={(e) => setAppSearchQuery(e.target.value)}
+                  className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-lg pl-8 pr-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* List scroll container */}
+            <div className="flex-1 overflow-y-auto divide-y divide-theme-border/40">
+              {apps
+                .filter(app => 
+                  app.name.toLowerCase().includes(appSearchQuery.toLowerCase()) || 
+                  app.id.toLowerCase().includes(appSearchQuery.toLowerCase())
+                )
+                .map((app) => {
+                  const isSelected = selectedAppId === app.id;
+                  const isSyncing = app.status === 'syncing' || syncingId === app.id;
+                  const isSynced = app.status === 'synced';
+
+                  return (
+                    <button
+                      key={app.id}
+                      onClick={() => {
+                        setSelectedAppId(app.id);
+                        handleInspect(app.id, inspectType || 'files');
+                      }}
+                      className={`w-full p-3.5 text-left flex items-start gap-3 transition-colors cursor-pointer border-none outline-none ${
+                        isSelected
+                          ? 'bg-indigo-600/10 border-l-2 border-indigo-500'
+                          : 'hover:bg-theme-bg/40'
+                      }`}
+                    >
+                      <div className="p-1.5 bg-theme-bg border border-theme-border rounded-lg text-theme-text-secondary mt-0.5">
+                        <Server size={14} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1.5 mb-1">
+                          <span className="font-bold text-xs text-theme-text-primary truncate">{app.name}</span>
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            isSyncing ? 'bg-indigo-500 animate-pulse' : isSynced ? 'bg-emerald-500' : 'bg-neutral-600'
+                          }`} />
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] font-mono text-theme-text-muted">
+                          <span>{app.id}</span>
+                          <span className="opacity-80">{app.filesCount} files</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              {apps.filter(app => 
+                app.name.toLowerCase().includes(appSearchQuery.toLowerCase()) || 
+                app.id.toLowerCase().includes(appSearchQuery.toLowerCase())
+              ).length === 0 && (
+                <div className="p-4 text-center text-xs text-theme-text-muted italic">
+                  Aplikasi tidak ditemukan
+                </div>
+              )}
             </div>
           </div>
 
-          {inspectLoading ? (
-            <div className="py-12 flex items-center justify-center gap-2 text-theme-text-secondary text-sm">
-              <RefreshCw className="animate-spin text-indigo-500" size={16} />
-              Loading inspect stream...
-            </div>
-          ) : inspectData ? (
-            <div className="bg-theme-bg/60 rounded-lg p-4 border border-theme-border font-mono text-xs overflow-x-auto text-theme-text-primary space-y-1 max-h-80 overflow-y-auto">
-              {inspectType === 'files' && inspectData.files && (
-                <div className="space-y-1.5">
-                  <div className="text-theme-text-muted mb-2">// Discovered UI Components and Project Modules:</div>
-                  {inspectData.files.map((file: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 py-0.5 hover:bg-theme-card px-1 rounded transition-colors">
-                      <span className="text-indigo-400 font-semibold">{i + 1}.</span>
-                      <span>{file}</span>
+          {/* Right Panel: Selected App Details & Action Terminal */}
+          <div className="md:col-span-8 p-5 flex flex-col justify-between max-h-[500px] overflow-y-auto space-y-4">
+            {(() => {
+              const activeApp = apps.find(a => a.id === selectedAppId);
+              if (!activeApp) {
+                return (
+                  <div className="flex-1 h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                      <Server size={22} className="animate-pulse" />
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-sm text-theme-text-primary">Ecosystem Console Ready</h4>
+                      <p className="text-xs text-theme-text-secondary max-w-sm">
+                        Pilih salah satu aplikasi di panel kiri untuk mengonfigurasi sinkronisasi, file inspector, dan REST routes.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
 
-              {inspectType === 'endpoints' && inspectData.endpoints && (
-                <div className="space-y-2">
-                  <div className="text-theme-text-muted mb-2">// Registered REST & WebSocket Interfaces:</div>
-                  {inspectData.endpoints.map((ep: string, i: number) => {
-                    const [method, ...rest] = ep.split(' ');
-                    return (
-                      <div key={i} className="py-1 border-b border-theme-border/50 last:border-0 hover:bg-theme-card px-1 rounded transition-colors">
-                        <span className="font-semibold text-emerald-400 mr-2">{method}</span>
-                        <span>{rest.join(' ')}</span>
+              const isSyncing = activeApp.status === 'syncing' || syncingId === activeApp.id;
+
+              return (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <h4 className="font-bold text-base text-theme-text-primary flex items-center gap-1.5">
+                          {activeApp.name}
+                          {activeApp.id === 'roc-agentsroute' && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold font-mono bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded">Core Hub</span>
+                          )}
+                        </h4>
+                        <div className="text-[11px] font-mono text-indigo-400 mt-0.5 flex items-center gap-1">
+                          <span>Endpoint:</span>
+                          <a href={activeApp.url} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-xs">{activeApp.url}</a>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
 
-              {inspectType === 'logs' && inspectData.logs && (
-                <div className="space-y-1 text-theme-text-secondary">
-                  {inspectData.logs.length === 0 ? (
-                    <div className="text-theme-text-muted">No synchronization history found. Click sync to register logs.</div>
-                  ) : (
-                    inspectData.logs.map((log: string, i: number) => (
-                      <div key={i} className="text-theme-text-secondary whitespace-pre-wrap font-mono">{log}</div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-theme-text-muted text-sm py-4">No data retrieved. Try re-syncing the application.</div>
-          )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={isSyncing}
+                          onClick={() => handleSync(activeApp.id)}
+                          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer select-none"
+                        >
+                          <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+                          {isSyncing ? "Syncing..." : activeApp.status === 'synced' ? "Re-sync App" : "Sync Now"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-theme-text-secondary leading-relaxed bg-theme-bg/30 p-3 rounded-lg border border-theme-border/40">
+                      {activeApp.description}
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-2 bg-theme-bg/40 p-2 rounded-lg border border-theme-border/50 text-center">
+                      <div>
+                        <p className="text-[9px] uppercase font-mono text-theme-text-muted tracking-wider">Indexed Files</p>
+                        <p className="text-sm font-bold text-theme-text-primary mt-0.5">{activeApp.filesCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase font-mono text-theme-text-muted tracking-wider">Components</p>
+                        <p className="text-sm font-bold text-theme-text-primary mt-0.5">{activeApp.componentsCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase font-mono text-theme-text-muted tracking-wider">API Routes</p>
+                        <p className="text-sm font-bold text-theme-text-primary mt-0.5">{activeApp.apiEndpointsCount}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center gap-1 bg-theme-bg p-1 rounded-lg border border-theme-border mb-3">
+                      {[
+                        { id: 'files', label: 'Files Inspector', icon: FileCode },
+                        { id: 'endpoints', label: 'API Routes', icon: Radio },
+                        { id: 'logs', label: 'Sync Logs', icon: Terminal }
+                      ].map((tab) => {
+                        const TabIcon = tab.icon;
+                        const isTabActive = inspectType === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => handleInspect(activeApp.id, tab.id as any)}
+                            className={`flex-1 py-1.5 px-2.5 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none outline-none ${
+                              isTabActive
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-theme-text-muted hover:text-theme-text-primary'
+                            }`}
+                          >
+                            <TabIcon size={12} />
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex-1 min-h-[160px] bg-neutral-950 rounded-xl p-3 border border-theme-border/60 overflow-y-auto max-h-[220px]">
+                      {inspectLoading ? (
+                        <div className="h-full flex items-center justify-center gap-2 text-theme-text-muted font-mono text-xs">
+                          <RefreshCw className="animate-spin text-indigo-400" size={12} />
+                          Membaca data kognitif index...
+                        </div>
+                      ) : inspectData ? (
+                        <div className="font-mono text-[11px] leading-relaxed text-slate-300">
+                          {inspectType === 'files' && inspectData.files && (
+                            <div className="space-y-1">
+                              <div className="text-emerald-400/80 font-bold mb-1.5">// Discovered Components & Code Files:</div>
+                              {inspectData.files.map((file: string, idx: number) => (
+                                <div key={idx} className="flex items-center gap-1.5 py-0.5 hover:bg-slate-900/60 px-1 rounded text-left w-full break-all">
+                                  <span className="text-indigo-400">{idx + 1}.</span>
+                                  <span>{file}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {inspectType === 'endpoints' && inspectData.endpoints && (
+                            <div className="space-y-1">
+                              <div className="text-emerald-400/80 font-bold mb-1.5">// Discovered API Endpoints:</div>
+                              {inspectData.endpoints.map((ep: string, idx: number) => {
+                                const [method, ...rest] = ep.split(' ');
+                                return (
+                                  <div key={idx} className="py-0.5 hover:bg-slate-900/60 px-1 rounded flex items-center text-left w-full">
+                                    <span className="text-emerald-400 font-bold w-12 flex-shrink-0">{method}</span>
+                                    <span className="truncate text-slate-300">{rest.join(' ')}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {inspectType === 'logs' && inspectData.logs && (
+                            <div className="space-y-1">
+                              <div className="text-emerald-400/80 font-bold mb-1.5">// Event Execution Logs:</div>
+                              {inspectData.logs.length === 0 ? (
+                                <div className="text-slate-500 italic">No sync logs recorded yet. Click 'Sync Now' above.</div>
+                              ) : (
+                                inspectData.logs.map((log: string, idx: number) => (
+                                  <div key={idx} className="text-[10px] text-slate-400 text-left whitespace-pre-wrap">{log}</div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-slate-500 font-mono text-[11px] italic">
+                          Pilih tab di atas untuk menginspeksi rincian aplikasi.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Advanced AI Cognitive Memory Storage Controller Section (Daya Ingat & Penyimpanan Banyak) */}
       <div className="border-t border-theme-border pt-8 space-y-6">

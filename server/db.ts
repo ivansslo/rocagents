@@ -69,6 +69,7 @@ interface DatabaseSchema {
   memories?: MemoryItem[];
   selfCapabilities?: SelfCapability[];
   scheduledRoutines?: ScheduledRoutine[];
+  snowflakeModels?: string[];
 }
 
 const DEFAULT_SCHEMA: DatabaseSchema = {
@@ -711,7 +712,11 @@ const DEFAULT_SCHEMA: DatabaseSchema = {
   ],
   chatSessions: [],
   memories: [],
-  selfCapabilities: []
+  selfCapabilities: [],
+  snowflakeModels: [
+    "Snowflake-Cortex-Roc-v1",
+    "Predictive-Robotic-Maintenance-v4"
+  ]
 };
 
 function sanitizeSchema(obj: any): any {
@@ -919,6 +924,24 @@ class Database {
     if (!this.data.scheduledRoutines) return;
     this.data.scheduledRoutines = this.data.scheduledRoutines.filter(r => r.id !== id);
     this.save();
+  }
+
+  getSnowflakeModels(): string[] {
+    if (!this.data.snowflakeModels) {
+      this.data.snowflakeModels = ["Snowflake-Cortex-Roc-v1", "Predictive-Robotic-Maintenance-v4"];
+      this.save();
+    }
+    return this.data.snowflakeModels;
+  }
+
+  addSnowflakeModel(modelName: string) {
+    if (!this.data.snowflakeModels) {
+      this.data.snowflakeModels = ["Snowflake-Cortex-Roc-v1", "Predictive-Robotic-Maintenance-v4"];
+    }
+    if (!this.data.snowflakeModels.includes(modelName)) {
+      this.data.snowflakeModels.push(modelName);
+      this.save();
+    }
   }
 }
 
