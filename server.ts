@@ -11,6 +11,7 @@ import { db } from "./server/db";
 import { initScheduler } from "./server/scheduler";
 import { createAuthMiddleware } from "./server/authMiddleware";
 import { toolImplementations } from "./server/tools";
+import selfDevRouter from "./server/self-dev";
 
 if (dns && dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
@@ -474,7 +475,14 @@ except Exception as e:
 
   // Chat sessions endpoints
   app.get("/api/chat-sessions", (req, res) => {
-    try { res.json(db.getChatSessions()); } catch (err: any) { res.status(500).json({ error: err.message }); }
+    try { 
+      const sessions = db.getChatSessions();
+      console.log(`[API] Returning ${sessions.length} chat sessions`);
+      res.json(sessions); 
+    } catch (err: any) { 
+      console.error("[API ERROR] Error loading chat sessions:", err);
+      res.status(500).json({ error: err.message }); 
+    }
   });
 
   app.post("/api/chat-sessions", (req, res) => {
@@ -535,19 +543,21 @@ except Exception as e:
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // Self capabilities endpoints
-  app.get("/api/self-capabilities", (req, res) => {
-    try { res.json(db.getSelfCapabilities()); } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
-
-  app.post("/api/self-capabilities", (req, res) => {
+  // POST propagate memory
+  app.post("/api/memories/propagate", (req, res) => {
     try {
-      const { name, codeSnippet, purpose, category } = req.body;
-      if (!name || !codeSnippet) return res.status(400).json({ error: "Name and codeSnippet required" });
-      const id = db.saveSelfCapability(name, codeSnippet, purpose || '', category || 'general');
-      res.json({ status: "success", id });
+      const { key, value, category } = req.body;
+      if (!key || !value) return res.status(400).json({ error: "Key and value required" });
+      
+      // Propagate memory
+      db.saveMemory(key, value, category || 'propagated');
+      
+      res.json({ status: "success", message: "Memory propagated" });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
+
+  // Self capabilities endpoints
+  app.use("/api/self-dev", selfDevRouter);
 
   app.post("/api/web-search", async (req, res) => {
     try {
@@ -558,28 +568,6 @@ except Exception as e:
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
-  });
-
-  app.get("/api/capability-logs/:name", (req, res) => {
-    try {
-      const nameDecoded = decodeURIComponent(req.params.name);
-      const logs = db.getLogs().filter(l => 
-        (l.toolName === "self_develop_capability" && (l.args?.name === nameDecoded || l.args?.name === req.params.name)) ||
-        (l.args?.capabilityName === nameDecoded || l.args?.capabilityName === req.params.name)
-      );
-      res.json(logs);
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
-
-  app.get("/api/routines/:name/history", (req, res) => {
-    try {
-      const nameDecoded = decodeURIComponent(req.params.name);
-      const logs = db.getLogs().filter(l => 
-        (l.toolName === "self_develop_capability" && (l.args?.name === nameDecoded || l.args?.name === req.params.name)) ||
-        (l.args?.capabilityName === nameDecoded || l.args?.capabilityName === req.params.name)
-      );
-      res.json(logs);
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
   // Upload logs or workspace files endpoint

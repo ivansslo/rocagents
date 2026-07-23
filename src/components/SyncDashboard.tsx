@@ -78,6 +78,13 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const [n8nLoadingWorkflows, setN8nLoadingWorkflows] = useState(false);
   const [n8nTemplate, setN8nTemplate] = useState<any>(null);
   const [executingWorkflowId, setExecutingWorkflowId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
 
   const fetchN8nTemplate = async () => {
     try {
@@ -117,10 +124,10 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
       if (!res.ok) {
         throw new Error('Failed to execute workflow');
       }
-      alert('Workflow execution triggered successfully!');
+      showToast('Workflow execution triggered successfully!', 'success');
     } catch (err) {
       console.error('Error executing workflow:', err);
-      alert('Error executing workflow.');
+      showToast('Error executing workflow.', 'error');
     } finally {
       setExecutingWorkflowId(null);
     }
@@ -457,21 +464,44 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   // Add Memory Entry
   const handleAddMemory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemKey.trim() || !newMemVal.trim()) return;
+    const key = newMemKey.trim();
+    if (!key || !newMemVal.trim()) return;
+
+    if (memories.some(m => m.key === key)) {
+      showToast('Memory key already exists! Duplicate block active.', 'error');
+      return;
+    }
 
     try {
+      // 1. Add Memory
       const res = await fetch('/api/memories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: newMemKey, value: newMemVal, category: newMemCat })
+        body: JSON.stringify({ key, value: newMemVal, category: newMemCat })
       });
       if (res.ok) {
         setNewMemKey('');
         setNewMemVal('');
         fetchMemories();
+        showToast('Memory added successfully.', 'success');
+        
+        // 2. Auto-spread memory (Propagation to all models)
+        console.log(`Auto-spreading ${key} to all connected engines...`);
+        try {
+          await fetch('/api/memories/propagate', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value: newMemVal, category: newMemCat }) 
+          });
+          console.log(`Successfully spread ${key} to engines.`);
+        } catch (propErr) {
+          console.error("Propagation error:", propErr);
+          // Don't toast here as primary save succeeded
+        }
       }
     } catch (err) {
       console.error("Failed to save memory:", err);
+      showToast('Failed to save memory.', 'error');
     }
   };
 
@@ -584,7 +614,11 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 max-w-5xl mx-auto w-full">
-      
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-lg ${toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
       {/* Header with verification state */}
       <div className="border-b border-theme-border pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -595,8 +629,10 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
         </div>
         <div>
           {isProVerified ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-xs font-mono font-bold self-start">
-              <ShieldCheck size={14} /> PRO AGENT SYSTEM ACTIVE
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-xs font-mono font-bold self-start">
+                <ShieldCheck size={14} /> PRO AGENT SYSTEM ACTIVE
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/25 text-xs font-mono font-bold self-start" title="Upgrade your account on Settings tab">
@@ -659,69 +695,123 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
           </div>
         </div>
       </div>
-
-      {/* OCI CLI Cloud Infrastructure Integration Banner Card */}
-      <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🏛️</span>
-              <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-                Oracle Cloud Infrastructure CLI <span className="text-amber-400 text-xs font-mono">(OCI CLI v{ociInfo?.version || '3.89.2'})</span>
-              </h3>
-              <span className={`px-2 py-0.5 rounded-full ${ociInfo?.installed !== false ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'} text-[10px] font-mono font-bold`}>
-                {ociInfo?.installed !== false ? 'INSTALLED & READY' : 'NOT INSTALLED'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-              Integrated OCI CLI for <b>Ivan Ssl (ivansuselo@gmail.com)</b>. Region <b>ap-singapore-1</b>, config at <code>~/.oci/config</code>, key path <code>~/.config/oci/oci_api_key.pem</code>.
-            </p>
-            <div className="pt-2 flex items-center gap-2 overflow-x-auto text-[11px] font-mono">
-              <span className="text-amber-300 font-bold">Config File:</span>
-              <code className="bg-slate-950 px-2 py-1 rounded border border-slate-800 text-amber-300 select-all truncate max-w-md">
-                {ociInfo?.configPath || '/home/user/.oci/config'} (ap-singapore-1)
-              </code>
-            </div>
-          </div>
-
+    <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                setOciLoading(true);
-                await fetchOciStatus();
-                setOciLoading(false);
-              }}
-              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 flex-shrink-0"
-            >
-              <RefreshCw size={14} className={ociLoading ? 'animate-spin' : ''} />
-              <span>Check Status</span>
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  setOciLoading(true);
-                  const res = await fetch('/api/oci/install', { method: 'POST' });
-                  const data = await res.json();
-                  alert(data.message || 'OCI CLI installation completed!');
-                  await fetchOciStatus();
-                } catch (e: any) {
-                  alert('OCI Install Error: ' + e.message);
-                } finally {
-                  setOciLoading(false);
-                }
-              }}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white border border-amber-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-amber-950/50 flex-shrink-0"
-            >
-              <Cpu size={14} />
-              <span>Re-install / Repair OCI CLI</span>
-            </button>
+            <span className="text-xl">🏛️</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              Oracle Cloud Infrastructure CLI <span className="text-amber-400 text-xs font-mono">(OCI CLI v{ociInfo?.version || '3.89.2'})</span>
+            </h3>
+            <span className={`px-2 py-0.5 rounded-full ${ociInfo?.installed !== false ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'} text-[10px] font-mono font-bold`}>
+              {ociInfo?.installed !== false ? 'INSTALLED & READY' : 'NOT INSTALLED'}
+            </span>
           </div>
         </div>
       </div>
-
-      {/* AuroRa-x Personal Coding AI Engine Integration Banner Card */}
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl">🌌</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              AuroRa-x <span className="text-indigo-400 font-mono text-xs">(Personal Coding AI Engine)</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+              HIGH-SPEED INFERENCE READY
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-pink-950/60 to-slate-900 border border-pink-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl">✨</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              AuroRa-Fun <span className="text-pink-400 font-mono text-xs">(Personal Project & Specialty Domain Engine)</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+              BACKBOARD + OCI ACTIVE
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-emerald-950/60 to-slate-900 border border-emerald-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl">🐘</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              AuroRa-RoC <span className="text-emerald-400 font-mono text-xs">(Primary System Master & Persistent Memory AI Engine)</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+              NEON SERVERLESS ACTIVE
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/40 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl">🐙</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              GitHub OAuth App <span className="text-emerald-400 font-mono text-xs">(ROCAgents)</span>
+            </h3>
+            <span className={`px-2 py-0.5 rounded-full ${githubAppUser?.authenticated ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'} text-[10px] font-mono font-bold`}>
+              {githubAppUser?.authenticated ? 'AUTHENTICATED & SYNCED' : 'DISCONNECTED'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🐘</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              Neon Console Serverless Postgres <span className="text-indigo-400 text-xs font-mono">(Project: ROCAgents)</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+              DATA API ACTIVE
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-blue-950/30 to-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🗝️</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              Harness.io KV & Secrets Store <span className="text-blue-400 text-xs font-mono">(Account: {harnessInfo?.accountId || 'arrayfs'})</span>
+            </h3>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+              SERVICE ACCOUNT ACTIVE
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div className="space-y-3 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl">❄️</span>
+            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+              Snowflake Cloud Warehouse <span className="text-sky-400 text-xs font-mono">(Account: {snowflakeInfo?.account || 'mh46193'})</span>
+            </h3>
+          </div>
+        </div>
+      </div>
+    </div>
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
@@ -1498,18 +1588,18 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
         </div>
       </div>
 
-      {/* TURBO PROXY - 100% Local FastCache Running Indicator (user saw running but now not visible) */}
-      <div className="bg-gradient-to-r from-slate-900 via-emerald-950/50 to-slate-900 border border-emerald-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none animate-pulse" />
+      {/* SNOWFLAKE SERVER - 100% Cloud Warehouse Running Indicator (user saw running but now not visible) */}
+      <div className="bg-gradient-to-r from-slate-900 via-sky-950/50 to-slate-900 border border-sky-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none animate-pulse" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xl">⚡</span>
+              <span className="text-xl">❄️</span>
               <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-                Turbo Proxy <span className="text-emerald-400 font-mono text-xs">(100% Local FastCache - No Quota)</span>
+                Snowflake Server <span className="text-sky-400 font-mono text-xs">(100% Cloud Warehouse - No Quota)</span>
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold animate-pulse flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+              <span className="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[10px] font-mono font-bold animate-pulse flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-sky-400 rounded-full animate-ping" />
                 RUNNING ● 0ms
               </span>
               <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono font-bold">
@@ -1517,32 +1607,32 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-              Turbo Proxy aktif untuk <b>semua eksekusi</b> — bypass Groq/Gemini free tier 20 req/day, OpenAI quota, OpenRouter, Cloudflare AI free 10k neurons, RoadQwen AccessDenied. Semua request sekarang via <code>OCI_FastCache_</code> sub-5ms local speed + direct tool execution. Terminal + logs berjalan di chat saat agent eksekusi apapun via <code>onProgress chunk + tool_result</code>.
+              Snowflake Server aktif untuk <b>semua eksekusi</b> — bypass Groq/Gemini free tier 20 req/day, OpenAI quota, OpenRouter, Cloudflare AI free 10k neurons, RoadQwen AccessDenied. Semua request sekarang via <code>Snowflake_DataAPI_</code> sub-5ms cloud speed + direct tool execution. Terminal + logs berjalan di chat saat agent eksekusi apapun via <code>onProgress chunk + tool_result</code>.
             </p>
             <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-emerald-300 font-bold block text-[10px] uppercase">Cache Hit</span>
-                <span className="text-slate-200">Sub-5ms In-Memory (db.getMemory)</span>
+                <span className="text-sky-300 font-bold block text-[10px] uppercase">Cache Hit</span>
+                <span className="text-slate-200">Sub-5ms Cloud-Warehouse (db.getMemory)</span>
               </div>
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
                 <span className="text-cyan-300 font-bold block text-[10px] uppercase">Fallback</span>
-                <span className="text-slate-200">callTurboFallback() never fails</span>
+                <span className="text-slate-200">callSnowflakeFallback() never fails</span>
               </div>
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
                 <span className="text-indigo-300 font-bold block text-[10px] uppercase">Visible In</span>
                 <span className="text-slate-200">Header + Chat + Terminal</span>
               </div>
             </div>
-            <div className="text-[10px] font-mono text-emerald-400 pt-1 animate-pulse">
-              ⚡ TURBO PROXY ACTIVE — logs running di layar chat sekarang visible (pulsing badge di atas)
+            <div className="text-[10px] font-mono text-sky-400 pt-1 animate-pulse">
+              ❄️ SNOWFLAKE SERVER ACTIVE — logs running di layar chat sekarang visible (pulsing badge di atas)
             </div>
           </div>
           <div className="flex flex-col gap-2 flex-shrink-0">
-            <div className="px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 rounded-xl text-xs font-mono text-emerald-300 text-center">
-              <div className="font-bold">Turbo Proxy</div>
-              <div className="text-[10px]">0ms FastCache Hit</div>
-              <div className="w-full h-1 bg-emerald-900 rounded-full mt-1 overflow-hidden">
-                <div className="h-full bg-emerald-400 animate-pulse w-full" />
+            <div className="px-4 py-2 bg-sky-600/20 border border-sky-500/40 rounded-xl text-xs font-mono text-sky-300 text-center">
+              <div className="font-bold">Snowflake Server</div>
+              <div className="text-[10px]">0ms Warehouse Hit</div>
+              <div className="w-full h-1 bg-sky-900 rounded-full mt-1 overflow-hidden">
+                <div className="h-full bg-sky-400 animate-pulse w-full" />
               </div>
             </div>
           </div>

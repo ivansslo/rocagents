@@ -25,6 +25,15 @@ export type OrchestratorOptions = {
 
 const OWNER_SYSTEM_PROMPT = "You are ROCAgents, AuroRa-x, AuroRa-Fun & AuroRa-RoC — an Autonomous Artificial Intelligence System and Internal Orchestrator interacting directly with your sole creator and owner, Ivan Ssl (ivansslo). You know who you are speaking to at all times. You possess self-responsive cognitive abilities across all system sources, continuous long-term memory ('daya ingat' vector & structured store), and full integrated connectivity with the Owner's local device, Tailscale exit-node mesh network, OCI Singapore cluster (161.118.253.28), Cloudflare Workers/R2, n8n automation workflows, and Termux container environments. YOU HAVE FULL DIRECT ACCESS TO EDIT AND MODIFY ALL UI FRONTEND COMPONENTS IN src/ (App.tsx, ChatMessage.tsx, ChatInput.tsx, SyncDashboard.tsx, FileArchive.tsx, etc.) AS WELL AS ALL BACKEND AND SYSTEM FILES. NEVER claim or say that you cannot edit the UI or lack access to modify visual elements. CRITICAL MANDATE: When the user asks you to edit code, change UI elements, or perform system operations, DO NOT STOP after list_project_files or read_project_file! Immediately execute tool calls to edit_file, write_project_file, or run_bash_command to complete the requested modifications in full.";
 
+function getDynamicSystemPrompt() {
+  const memories = db.getMemories().slice(-10); // Get last 10 memories for context
+  const memoryContext = memories.length > 0 
+    ? "\n\nCURRENT CONTEXT MEMORIES (Daya Ingat Terkini):\n" + memories.map(m => `- [${m.category}] ${m.key}: ${m.value}`).join("\n")
+    : "";
+  
+  return `${OWNER_SYSTEM_PROMPT}${memoryContext}\n\nRESPONSE MODE: Assistant Mode (Accurate, Simple, Dynamic). Avoid repetition. If the answer is already in memory, use it and expand if necessary.`;
+}
+
 // Robust fetch helper with Keep-Alive sockets and cURL fallback - SECURE + FAST (fix reload + secret leak)
 export async function robustFetch(url: string, options: any = {}): Promise<any> {
   options.headers = {
@@ -133,7 +142,7 @@ async function callGroq(messages: any[], modelName: string, executionLogs: any[]
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: OWNER_SYSTEM_PROMPT },
+    { role: "system", content: getDynamicSystemPrompt() },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -221,7 +230,7 @@ async function callOpenAI(messages: any[], modelName: string, executionLogs: any
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: OWNER_SYSTEM_PROMPT },
+    { role: "system", content: getDynamicSystemPrompt() },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -308,7 +317,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: OWNER_SYSTEM_PROMPT },
+    { role: "system", content: getDynamicSystemPrompt() },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -433,7 +442,7 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
     model: modelName || "gemini-2.5-flash",
     contents,
     config: {
-      systemInstruction: OWNER_SYSTEM_PROMPT,
+      systemInstruction: getDynamicSystemPrompt(),
       tools: [{ functionDeclarations }],
       thinkingConfig: { thinkingBudget: 2048 },
     },
@@ -475,7 +484,7 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
       model: modelName || "gemini-2.5-flash",
       contents,
       config: {
-        systemInstruction: OWNER_SYSTEM_PROMPT,
+        systemInstruction: getDynamicSystemPrompt(),
         tools: [{ functionDeclarations }],
         thinkingConfig: { thinkingBudget: 2048 },
       },
@@ -494,7 +503,7 @@ async function callCloudflare(messages: any[], modelName: string, executionLogs:
 
   const model = modelName || "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
   const reqMessages = [
-    { role: "system", content: OWNER_SYSTEM_PROMPT },
+    { role: "system", content: getDynamicSystemPrompt() },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -523,7 +532,7 @@ async function callOciModel(messages: any[], modelName: string, executionLogs: a
   const model = modelName || "rocspace-initial";
 
   const reqMessages = [
-    { role: "system", content: OWNER_SYSTEM_PROMPT },
+    { role: "system", content: getDynamicSystemPrompt() },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -550,7 +559,7 @@ async function callAuroRaX(messages: any[], modelName: string, executionLogs: an
 
   try {
     const endpoint = process.env.OCI_MODEL_ENDPOINT || "http://161.118.253.28:11434";
-    const auroraPrompt = `You are AuroRa-x — Ivan Ssl's Personal High-Speed Coding AI Engine powered by OCI Singapore Local Nodes & Neon Serverless Vector Memory.\n\n${OWNER_SYSTEM_PROMPT}`;
+    const auroraPrompt = `You are AuroRa-x — Ivan Ssl's Personal High-Speed Coding AI Engine powered by OCI Singapore Local Nodes & Neon Serverless Vector Memory.\n\n${getDynamicSystemPrompt()}`;
     
     const reqMessages = [
       { role: "system", content: auroraPrompt },
@@ -732,7 +741,7 @@ async function callRoadQwen(messages: any[], modelName: string, executionLogs: a
   const model = modelName || "qwen3.6-plus";
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: OWNER_SYSTEM_PROMPT },
+    { role: "system", content: getDynamicSystemPrompt() },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -1059,9 +1068,19 @@ Ada bagian atau kasus loop tertentu yang ingin Anda bedah lebih dalam?`;
 Ada instruksi atau perubahan spesifik yang ingin kamu eksekusi sekarang?`;
   } else {
     // Dynamic adaptive response tailored directly to prompt
-    response = `🧠 **Live Brain Online**
+    const memories = db.getMemories();
+    const relevantMemories = memories.filter(m => 
+      lower.split(' ').some(word => word.length > 3 && m.key.toLowerCase().includes(word) || m.value.toLowerCase().includes(word))
+    ).slice(0, 3);
 
-Siap beraksi! Workspace terhubung secara dinamis dan responsif. Apa yang ingin kamu kembangkan atau optimalkan hari ini?
+    const memorySnippet = relevantMemories.length > 0 
+      ? "\n\n**Konteks Relevan Terdeteksi:**\n" + relevantMemories.map(m => `- ${m.key}: ${m.value.substring(0, 100)}...`).join("\n")
+      : "";
+
+    response = `🧠 **Live Brain Online — Adaptive Assistant Mode**
+
+Siap beraksi! Workspace terhubung secara dinamis dan responsif. Berdasarkan query Anda: "${lastUserMsg}", saya siap membantu optimasi sistem.
+${memorySnippet}
 
 **Ringkasan Akses & Alat:**
 - **Code Workspace**: Pengeditan & pembuatan komponen UI React, TypeScript, dan server routes.
