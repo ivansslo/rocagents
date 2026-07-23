@@ -776,6 +776,29 @@ except Exception as e:
     }
   });
 
+  app.post("/api/github/push", async (req, res) => {
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      const token = req.body?.token || process.env.GITHUB_PAT || process.env.GITHUB_OAUTH_TOKEN || process.env.GH_TOKEN;
+      if (!token) {
+        return res.status(400).json({ status: "error", error: "GitHub Personal Access Token (PAT) atau OAuth token diperlukan untuk push." });
+      }
+
+      await execAsync('git config user.name "Ivan Ssl" && git config user.email "ivansuselo@gmail.com"');
+      await execAsync('git add . && git commit -m "feat: Module WebSearching 4-tahap, Automated Backup, and UI enhancements" || true');
+
+      const pushCmd = `git push https://${token}@github.com/ivansslo/rocagents.git main --force`;
+      const { stdout, stderr } = await execAsync(pushCmd, { timeout: 45000 });
+
+      res.json({ status: "success", message: "Push ke github.com/ivansslo/rocagents.git berhasil!", stdout: stdout || "", stderr: stderr || "" });
+    } catch (err: any) {
+      res.status(500).json({ status: "error", error: err.message });
+    }
+  });
+
   // GitHub OAuth Flow Routes
   app.get("/api/auth/github", (req, res) => {
     const clientId = process.env.GITHUB_CLIENT_ID || "Ov23litvasZbgpCiNHIg";

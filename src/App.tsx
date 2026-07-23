@@ -266,6 +266,7 @@ db.addLog({
   const [githubUpdates, setGithubUpdates] = useState<any>(null);
   const [showNotifyDropdown, setShowNotifyDropdown] = useState(false);
   const [isPullingGit, setIsPullingGit] = useState(false);
+  const [isPushingGit, setIsPushingGit] = useState(false);
   const [githubOAuthUser, setGithubOAuthUser] = useState<any>(null);
 
   const fetchGithubUpdates = async () => {
@@ -356,6 +357,44 @@ db.addLog({
       alert(`Git Pull Error: ${err.message}`);
     } finally {
       setIsPullingGit(false);
+    }
+  };
+
+  const handleGitPushLatest = async () => {
+    setIsPushingGit(true);
+    try {
+      let savedPat = localStorage.getItem('ROC_GITHUB_PAT') || '';
+      const res = await fetch('/api/github/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: savedPat })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        alert(`✅ Git Push Success:\n${data.message}\n${data.stdout || ''}`);
+        await fetchGithubUpdates();
+      } else {
+        const inputPat = prompt(`🚀 Input GitHub Personal Access Token (PAT) untuk push ke ivansslo/rocagents:\n(Error: ${data.error || 'Unauthorized'})`, savedPat);
+        if (inputPat) {
+          localStorage.setItem('ROC_GITHUB_PAT', inputPat);
+          const retryRes = await fetch('/api/github/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: inputPat })
+          });
+          const retryData = await retryRes.json();
+          if (retryRes.ok && retryData.status === 'success') {
+            alert(`✅ Git Push Success:\n${retryData.message}\n${retryData.stdout || ''}`);
+            await fetchGithubUpdates();
+          } else {
+            alert(`❌ Push Gagal: ${retryData.error || 'Terjadi kesalahan'}`);
+          }
+        }
+      }
+    } catch (err: any) {
+      alert(`Git Push Error: ${err.message}`);
+    } finally {
+      setIsPushingGit(false);
     }
   };
 
@@ -1413,15 +1452,28 @@ db.addLog({
 
                   {/* Action Buttons */}
                   <div className="pt-2 border-t border-slate-800 space-y-2">
-                    <button
-                      type="button"
-                      disabled={isPullingGit}
-                      onClick={handleGitPullLatest}
-                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
-                    >
-                      <RefreshCw size={13} className={isPullingGit ? 'animate-spin' : ''} />
-                      <span>{isPullingGit ? 'Syncing Git Pull...' : 'Sync & Pull Latest Commits'}</span>
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={isPullingGit}
+                        onClick={handleGitPullLatest}
+                        className="py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                      >
+                        <RefreshCw size={13} className={isPullingGit ? 'animate-spin' : ''} />
+                        <span>{isPullingGit ? 'Pulling...' : 'Pull Latest'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isPushingGit}
+                        onClick={handleGitPushLatest}
+                        className="py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                      >
+                        <Upload size={13} className={isPushingGit ? 'animate-spin' : ''} />
+                        <span>{isPushingGit ? 'Pushing...' : 'Push GitHub'}</span>
+                      </button>
+                    </div>
+
                     <a
                       href="/api/auth/github"
                       className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-all block text-center"
