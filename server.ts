@@ -818,12 +818,36 @@ except Exception as e:
         }
       }
 
+      // 3. Fast response: Trigger local rebuild and dependency resolution in the background asynchronously
+      const rebuildCommand = "rm -rf node_modules/.vite && npm install --legacy-peer-deps && npm install react-is --legacy-peer-deps && npm run build";
+      console.log(`[POST-PULL BUILD] Triggering background execution: ${rebuildCommand}`);
+      
+      exec(rebuildCommand, { timeout: 300000 }, (error, stdout, stderr) => {
+        const timestamp = new Date().toISOString();
+        if (error) {
+          console.error(`[POST-PULL BUILD ERROR] at ${timestamp}: ${error.message}`);
+          db.saveMemory(
+            "Local_Rebuild_Status",
+            `Local automatic rebuild failed after git pull at ${timestamp}. Error: ${error.message}. Stderr: ${stderr || ""}`,
+            "System_Build"
+          );
+        } else {
+          console.log(`[POST-PULL BUILD SUCCESS] at ${timestamp}:\n${stdout}`);
+          db.saveMemory(
+            "Local_Rebuild_Status",
+            `Local automatic rebuild completed successfully after git pull at ${timestamp}. All packages re-installed and production static files built!`,
+            "System_Build"
+          );
+        }
+      });
+
       res.json({
         status: "success",
         stdout: stdout || "Pull successful",
         stderr: stderr || "",
         oauthSyncMessage,
         oauthUser,
+        localRebuildMessage: "Local background rebuild process initiated successfully (rm -rf node_modules/.vite && npm install & build).",
         clientId: process.env.GITHUB_CLIENT_ID || "Ov23litvasZbgpCiNHIg"
       });
     } catch (err: any) {
