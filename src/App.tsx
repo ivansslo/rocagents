@@ -38,9 +38,14 @@ export default function App() {
   // Fetch available AI models from backend
   useEffect(() => {
     fetch('/api/models')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok || !res.headers.get("content-type")?.includes("application/json")) {
+          return null;
+        }
+        return res.json();
+      })
       .then(data => {
-        if (data.models && data.models.length > 0) {
+        if (data && data.models && data.models.length > 0) {
           setAvailableModels(data.models);
           const savedModel = localStorage.getItem('ROC_MODEL');
           if (savedModel && data.models.find((m: any) => m.id === savedModel)) {
@@ -53,7 +58,7 @@ export default function App() {
           }
         }
       })
-      .catch(err => console.error("Failed to fetch available models:", err));
+      .catch(err => console.warn("Handled models fetch gracefully:", err));
   }, []);
 
   // Session rename state

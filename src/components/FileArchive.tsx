@@ -48,11 +48,11 @@ export function FileArchive({ activeSessionId }: { activeSessionId?: string | nu
         fetch('/api/workspace/sessions')
       ]);
 
-      if (treeRes.ok) {
+      if (treeRes.ok && treeRes.headers.get("content-type")?.includes("application/json")) {
         const treeData = await treeRes.json();
         setTreeItems(treeData);
       }
-      if (sessRes.ok) {
+      if (sessRes.ok && sessRes.headers.get("content-type")?.includes("application/json")) {
         const sessData = await sessRes.json();
         setSessionFolders(sessData);
       }

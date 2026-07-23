@@ -100,7 +100,7 @@ export function ExecutionHistoryModal({ capabilityName, onClose }: ExecutionHist
         if (!response.ok) {
           response = await fetch(`/api/capability-logs/${encodeURIComponent(capabilityName)}`);
         }
-        if (response.ok) {
+        if (response.ok && response.headers.get("content-type")?.includes("application/json")) {
           const data = await response.json();
           const sorted = (Array.isArray(data) ? data : []).sort((a: ExecutionLog, b: ExecutionLog) => 
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()

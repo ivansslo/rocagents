@@ -5,6 +5,7 @@ import {
   Plus, Trash2, Search, Activity, HardDrive, X 
 } from 'lucide-react';
 import { AppSyncInfo } from '../types';
+import { safeFetchJson } from '../lib/api';
 
 interface MemoryItem {
   key: string;
@@ -223,10 +224,10 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const fetchZapierClerkRocdStatus = async () => {
     try {
       const [zapRes, clerkRes, rocdRes, termuxRes] = await Promise.all([
-        fetch('/api/zapier/status').then(r => r.json()),
-        fetch('/api/clerk/status').then(r => r.json()),
-        fetch('/api/modules/rocd/status').then(r => r.json()),
-        fetch('/api/modules/termux-rocd/status').then(r => r.json())
+        safeFetchJson('/api/zapier/status'),
+        safeFetchJson('/api/clerk/status'),
+        safeFetchJson('/api/modules/rocd/status'),
+        safeFetchJson('/api/modules/termux-rocd/status')
       ]);
       setZapierInfo(zapRes);
       setClerkInfo(clerkRes);
@@ -240,7 +241,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const fetchHarnessStatus = async () => {
     try {
       const res = await fetch('/api/harness/status');
-      if (res.ok) {
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
         const data = await res.json();
         setHarnessInfo(data);
       }
@@ -252,10 +253,10 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const fetchNpmEcosystemStatus = async () => {
     try {
       const [npmRes, hubRes, linkRes, skillRes] = await Promise.all([
-        fetch('/api/npm/status').then(r => r.json()),
-        fetch('/api/clawhub/status').then(r => r.json()),
-        fetch('/api/clawlink/status').then(r => r.json()),
-        fetch('/api/skilllm/status').then(r => r.json())
+        safeFetchJson('/api/npm/status'),
+        safeFetchJson('/api/clawhub/status'),
+        safeFetchJson('/api/clawlink/status'),
+        safeFetchJson('/api/skilllm/status')
       ]);
       setNpmStatus(npmRes);
       setClawHubInfo(hubRes);
@@ -269,8 +270,8 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const fetchSelfCognitiveModules = async () => {
     try {
       const [refactRes, lsmodRes] = await Promise.all([
-        fetch('/api/modules/codex-refact/status').then(r => r.json()),
-        fetch('/api/modules/lsmod/status').then(r => r.json())
+        safeFetchJson('/api/modules/codex-refact/status'),
+        safeFetchJson('/api/modules/lsmod/status')
       ]);
       setCodexRefactInfo(refactRes);
       setLsmodInfo(lsmodRes);
