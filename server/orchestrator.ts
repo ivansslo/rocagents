@@ -41,6 +41,36 @@ function getDynamicSystemPrompt(userMsg?: string) {
   return `${SYSTEM_PROMPT}${memoryContext}`;
 }
 
+async function generateContentWithRetry(ai: any, params: any, onProgress?: any, maxRetries = 3): Promise<any> {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (err: any) {
+      if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+        attempt++;
+        if (attempt >= maxRetries) throw err;
+        
+        let retryDelay = 32000;
+        const match = err?.message?.match(/retry in (\d+(?:\.\d+)?)s/i);
+        if (match && match[1]) {
+          retryDelay = Math.ceil(parseFloat(match[1])) * 1000 + 2000;
+        } else if (err?.details) {
+          const retryInfo = err.details.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+          if (retryInfo && retryInfo.retryDelay) {
+            retryDelay = parseInt(retryInfo.retryDelay) * 1000 + 2000;
+          }
+        }
+        
+        onProgress?.({ type: 'status', data: { message: `Rate limit hit. Retrying in ${Math.round(retryDelay/1000)} seconds...` } });
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 async function callGemini(messages: any[], modelName: string, executionLogs: any[], onProgress?: (event: OrchestratorProgressEvent) => void) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
   if (!apiKey) throw new Error("GEMINI_API_KEY missing");
@@ -87,32 +117,14 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
 
   onProgress?.({ type: 'status', data: { message: `Connecting to Gemini (${targetModel})...` } });
 
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: targetModel || "gemini-3.6-flash",
-      contents,
-      config: {
-        systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
-        tools: [{ functionDeclarations }],
-      },
-    });
-  } catch (err: any) {
-    if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
-      onProgress?.({ type: 'status', data: { message: `Rate limit hit. Retrying in 20 seconds...` } });
-      await new Promise(resolve => setTimeout(resolve, 20000));
-      response = await ai.models.generateContent({
-        model: targetModel || "gemini-3.6-flash",
-        contents,
-        config: {
-          systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
-          tools: [{ functionDeclarations }],
-        },
-      });
-    } else {
-      throw err;
-    }
-  }
+  let response = await generateContentWithRetry(ai, {
+    model: targetModel || "gemini-3.6-flash",
+    contents,
+    config: {
+      systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+      tools: [{ functionDeclarations }],
+    },
+  }, onProgress);
 
   let turnCount = 0;
   let currentResponse = response;
@@ -143,31 +155,14 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
     contents.push(currentResponse.candidates![0].content as any);
     contents.push({ role: "user", parts: toolResponses } as any);
 
-    try {
-      response = await ai.models.generateContent({
-        model: targetModel || "gemini-3.6-flash",
-        contents,
-        config: {
-          systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
-          tools: [{ functionDeclarations }],
-        },
-      });
-    } catch (err: any) {
-      if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
-        onProgress?.({ type: 'status', data: { message: `Rate limit hit. Retrying in 20 seconds...` } });
-        await new Promise(resolve => setTimeout(resolve, 20000));
-        response = await ai.models.generateContent({
-          model: targetModel || "gemini-3.6-flash",
-          contents,
-          config: {
-            systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
-            tools: [{ functionDeclarations }],
-          },
-        });
-      } else {
-        throw err;
-      }
-    }
+    response = await generateContentWithRetry(ai, {
+      model: targetModel || "gemini-3.6-flash",
+      contents,
+      config: {
+        systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+        tools: [{ functionDeclarations }],
+      },
+    }, onProgress);
     currentResponse = response;
   }
 
