@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   RefreshCw, Server, CheckCircle2, AlertCircle, FileCode, Radio, 
   Database, Terminal, Brain, Cpu, ShieldCheck, Lock, Sparkles, 
-  Plus, Trash2, Search, Activity, HardDrive, X, Workflow 
+  Plus, Trash2, Search, Activity, HardDrive, X, Workflow, Play 
 } from 'lucide-react';
 import { AppSyncInfo } from '../types';
 import { safeFetchJson } from '../lib/api';
@@ -77,6 +77,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   const [n8nWorkflows, setN8nWorkflows] = useState<any[]>([]);
   const [n8nLoadingWorkflows, setN8nLoadingWorkflows] = useState(false);
   const [n8nTemplate, setN8nTemplate] = useState<any>(null);
+  const [executingWorkflowId, setExecutingWorkflowId] = useState<string | null>(null);
 
   const fetchN8nTemplate = async () => {
     try {
@@ -102,6 +103,26 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
       console.error('Failed to fetch N8N workflows:', err);
     } finally {
       setN8nLoadingWorkflows(false);
+    }
+  };
+
+  const executeN8nWorkflow = async (workflowId: string) => {
+    setExecutingWorkflowId(workflowId);
+    try {
+      const res = await fetch('/api/n8n/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflowId })
+      });
+      if (!res.ok) {
+        throw new Error('Failed to execute workflow');
+      }
+      alert('Workflow execution triggered successfully!');
+    } catch (err) {
+      console.error('Error executing workflow:', err);
+      alert('Error executing workflow.');
+    } finally {
+      setExecutingWorkflowId(null);
     }
   };
 
@@ -2199,7 +2220,16 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {n8nWorkflows.map((w: any) => (
                   <div key={w.id} className="bg-theme-input p-3 rounded-lg border border-theme-border flex flex-col gap-1 hover:border-purple-500/30 transition-colors">
-                    <span className="text-xs font-semibold text-theme-text-primary truncate">{w.name}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-theme-text-primary truncate">{w.name}</span>
+                      <button
+                        onClick={() => executeN8nWorkflow(w.id)}
+                        disabled={executingWorkflowId === w.id}
+                        className="p-1 hover:bg-purple-500/20 rounded text-purple-400 disabled:opacity-50"
+                      >
+                        <Play size={12} className={executingWorkflowId === w.id ? 'animate-pulse' : ''} />
+                      </button>
+                    </div>
                     <span className={`text-[9px] w-fit px-1.5 py-0.5 rounded ${w.active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
                       {w.active ? 'Active' : 'Inactive'}
                     </span>

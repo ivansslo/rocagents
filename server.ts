@@ -923,6 +923,28 @@ except Exception as e:
     }
   });
 
+  // POST execute n8n workflow
+  app.post("/api/n8n/execute", async (req, res) => {
+    try {
+      const { workflowId } = req.body || {};
+      if (!workflowId) return res.status(400).json({ error: "Workflow ID is required" });
+      
+      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
+      const apiKey = db.getMemory("N8N_API_KEY") || "";
+      if (!apiKey) return res.status(401).json({ error: "No API Key" });
+
+      const response = await fetch(`${n8nUrl}/api/v1/workflows/${workflowId}/run`, {
+        method: "POST",
+        headers: { "X-N8N-API-KEY": apiKey },
+        body: JSON.stringify({})
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST save n8n API Key
   app.post("/api/n8n/key", (req, res) => {
     try {
