@@ -809,8 +809,40 @@ class Database {
     }
   }
 
-  addLog(log: ExecutionLog) {
+  private async uploadToTermBin(content: string): Promise<string> {
+    try {
+      const { exec } = await import("child_process");
+      const util = await import("util");
+      const execAsync = util.promisify(exec);
+      const { stdout } = await execAsync(`echo ${JSON.stringify(content)} | nc termbin.com 9999`);
+      return stdout.trim();
+    } catch (e) {
+      console.error("Failed to upload to TermBin:", e);
+      return "Upload failed";
+    }
+  }
+
+  async addLog(log: ExecutionLog) {
+    if (log.result && typeof log.result === 'object') {
+      const resultStr = JSON.stringify(log.result);
+      if (resultStr.length > 500) {
+        const url = await this.uploadToTermBin(resultStr);
+        log.result = { _pastebin: url, originalLength: resultStr.length };
+      }
+    }
     this.data.logs.push(log);
+    this.save();
+  }
+
+  clearLogs() {
+    this.data.logs = [];
+    this.save();
+  }
+
+  deleteMemoriesByKey(keyPattern: string) {
+    if (!this.data.memories) return;
+    const regex = new RegExp(keyPattern, 'i');
+    this.data.memories = this.data.memories.filter(m => !regex.test(m.key) && !regex.test(m.value));
     this.save();
   }
 

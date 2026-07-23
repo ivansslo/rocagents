@@ -211,7 +211,7 @@ async function callGroq(messages: any[], modelName: string, executionLogs: any[]
 
       const result = await executeTool(toolName, toolArgs);
 
-      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -298,7 +298,7 @@ async function callOpenAI(messages: any[], modelName: string, executionLogs: any
 
       const result = await executeTool(toolName, toolArgs);
 
-      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -387,7 +387,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
 
       const result = await executeTool(toolName, toolArgs);
 
-      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -488,7 +488,7 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
 
       const result = await executeTool(toolName, toolArgs);
 
-      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -817,7 +817,7 @@ async function callRoadQwen(messages: any[], modelName: string, executionLogs: a
 
           const result = await executeTool(toolName, toolArgs);
 
-          db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+          await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
           executionLogs.push({ toolName, args: toolArgs, result });
           onProgress?.({ type: 'tool_result', data: { toolName, result } });
 

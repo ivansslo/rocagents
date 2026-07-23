@@ -1,6 +1,6 @@
 {
-  "name": "DevAgent Orchestrator",
-  "description": "Autonomous developer agent with tool-calling capabilities and task orchestration.",
+  "name": "AuroRa-Ulti-X Orchestrator",
+  "description": "Autonomous God-mode AI Engine with direct shell execution, high-speed cognitive memory, and n8n workflow integration.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
