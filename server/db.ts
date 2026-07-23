@@ -857,7 +857,7 @@ class Database {
     this.data.memories.forEach(m => {
       // Normalize key for deduplication
       const normKey = m.key.toLowerCase().trim();
-      if (!unique.has(normKey) || m.timestamp > unique.get(normKey).timestamp) {
+      if (!unique.has(normKey) || new Date(m.updatedAt).getTime() > new Date(unique.get(normKey).updatedAt).getTime()) {
         unique.set(normKey, m);
       }
     });
