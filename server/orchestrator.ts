@@ -87,14 +87,32 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
 
   onProgress?.({ type: 'status', data: { message: `Connecting to Gemini (${targetModel})...` } });
 
-  let response = await ai.models.generateContent({
-    model: targetModel || "gemini-3.6-flash",
-    contents,
-    config: {
-      systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
-      tools: [{ functionDeclarations }],
-    },
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: targetModel || "gemini-3.6-flash",
+      contents,
+      config: {
+        systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+        tools: [{ functionDeclarations }],
+      },
+    });
+  } catch (err: any) {
+    if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+      onProgress?.({ type: 'status', data: { message: `Rate limit hit. Retrying in 20 seconds...` } });
+      await new Promise(resolve => setTimeout(resolve, 20000));
+      response = await ai.models.generateContent({
+        model: targetModel || "gemini-3.6-flash",
+        contents,
+        config: {
+          systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+          tools: [{ functionDeclarations }],
+        },
+      });
+    } else {
+      throw err;
+    }
+  }
 
   let turnCount = 0;
   let currentResponse = response;
@@ -125,14 +143,31 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
     contents.push(currentResponse.candidates![0].content as any);
     contents.push({ role: "user", parts: toolResponses } as any);
 
-    response = await ai.models.generateContent({
-      model: targetModel || "gemini-3.6-flash",
-      contents,
-      config: {
-        systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
-        tools: [{ functionDeclarations }],
-      },
-    });
+    try {
+      response = await ai.models.generateContent({
+        model: targetModel || "gemini-3.6-flash",
+        contents,
+        config: {
+          systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+          tools: [{ functionDeclarations }],
+        },
+      });
+    } catch (err: any) {
+      if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+        onProgress?.({ type: 'status', data: { message: `Rate limit hit. Retrying in 20 seconds...` } });
+        await new Promise(resolve => setTimeout(resolve, 20000));
+        response = await ai.models.generateContent({
+          model: targetModel || "gemini-3.6-flash",
+          contents,
+          config: {
+            systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+            tools: [{ functionDeclarations }],
+          },
+        });
+      } else {
+        throw err;
+      }
+    }
     currentResponse = response;
   }
 
