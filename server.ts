@@ -135,7 +135,7 @@ async function startServer() {
   });
 
   // Chat endpoint
-  app.post("/api/chat", async (req, res) => {
+  app.post("/api/chat", authorizeOwner, async (req, res) => {
     try {
       const { messages, model, provider } = req.body;
 
@@ -153,7 +153,7 @@ async function startServer() {
   });
 
   // Real-time Event Streaming Chat Endpoint (SSE)
-  app.post("/api/chat/stream", async (req, res) => {
+  app.post("/api/chat/stream", authorizeOwner, async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -267,7 +267,7 @@ async function startServer() {
   });
 
   // Tailscale Auto Exec Endpoint
-  app.post("/api/tailscale/exec", async (req, res) => {
+  app.post("/api/tailscale/exec", authorizeOwner, async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -970,7 +970,7 @@ except Exception as e:
     }
   });
 
-  app.post("/api/github/pull", async (req, res) => {
+  app.post("/api/github/pull", authorizeOwner, async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -1065,7 +1065,7 @@ except Exception as e:
     }
   });
 
-  app.post("/api/github/push", async (req, res) => {
+  app.post("/api/github/push", authorizeOwner, async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -1849,6 +1849,29 @@ except Exception as e:
   });
 
   // Dedicated Terminal + Termbin Client Endpoints (fix request: terminal sendiri + logs rapi di chat via termbin)
+  app.post("/api/termbin/upload", authorizeOwner, async (req, res) => {
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+      const content = req.body.content || "";
+      if (!content) return res.status(400).json({ error: "Content is empty" });
+
+      // Create a temporary file to avoid command injection via large strings in echo
+      const fs = await import("fs/promises");
+      const tempPath = path.join(process.cwd(), `temp_termbin_${Date.now()}.txt`);
+      await fs.writeFile(tempPath, content);
+      
+      const { stdout } = await execAsync(`cat ${tempPath} | nc termbin.com 9999`);
+      await fs.rm(tempPath);
+      
+      const termbinUrl = stdout.trim();
+      res.json({ status: "success", url: termbinUrl });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/terminal/exec", authorizeOwner, async (req, res) => {
     try {
       const { exec } = await import("child_process");
@@ -2049,7 +2072,7 @@ except Exception as e:
   }
 
   // Session deletion endpoints
-app.delete("/api/sessions/all", async (req, res) => {
+app.delete("/api/sessions/all", authorizeOwner, async (req, res) => {
   try {
     const fs = await import("fs/promises");
     const sessionsDir = path.join(process.cwd(), "sessions");
@@ -2076,7 +2099,7 @@ app.delete("/api/sessions/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/chat-sessions", (req, res) => {
+app.delete("/api/chat-sessions", authorizeOwner, (req, res) => {
   try {
     db.clearChatSessions();
     res.json({ status: "success", message: "All chat sessions purged" });
