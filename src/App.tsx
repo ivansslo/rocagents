@@ -8,7 +8,6 @@ import { UpgradePanel } from './components/UpgradePanel';
 import { FileArchive } from './components/FileArchive';
 import { ExecutionHistoryModal } from './components/ExecutionHistoryModal';
 import { LiveTerminal } from './components/LiveTerminal';
-import { PerformanceTrendChart } from './components/PerformanceTrendChart';
 import { 
   Bot, Trash2, Settings, Minimize2, Maximize2, Menu, Sparkles, RefreshCw, 
   MessageSquare, Sun, Moon, Palette, Check, Plus, Edit2, Terminal as TerminalIcon, HardDrive, Layout, ChevronRight, ChevronDown, X, Search, Copy, Clock, Bell, Volume2, Download, Folder, MoreHorizontal, Activity, BarChart2, FileDown, Upload, ShieldCheck, TrendingUp, CheckCircle2, XCircle
@@ -700,6 +699,27 @@ db.addLog({
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDuplicateCapability = async (cap: any) => {
+    try {
+      const duplicateName = `${cap.name} Copy`;
+      const res = await fetch('/api/self-capabilities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: duplicateName,
+          codeSnippet: cap.codeSnippet,
+          purpose: cap.purpose,
+          category: cap.category || 'general'
+        })
+      });
+      if (res.ok) {
+        fetchSelfCapabilities();
+      }
+    } catch (err) {
+      console.error("Failed to duplicate capability:", err);
     }
   };
 
@@ -2091,12 +2111,6 @@ db.addLog({
                         </div>
                       </div>
 
-                      {/* Daily Execution Success Rate Trend Line Visualization */}
-                      <PerformanceTrendChart
-                        capabilities={selfCapabilities}
-                        executionLogs={capabilityExecutionLogs}
-                      />
-
                       {/* Routine Success Breakdown Table / Cards */}
                       <div className="bg-theme-sidebar border border-theme-border rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between border-b border-theme-border pb-2.5">
@@ -2183,6 +2197,15 @@ db.addLog({
                                     >
                                       <Clock size={12} />
                                       History
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDuplicateCapability(cap)}
+                                      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-theme-btn-active hover:bg-theme-btn-hover text-theme-text-secondary border border-theme-border text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                      title="Duplicate routine"
+                                    >
+                                      <Copy size={12} />
+                                      Duplicate
                                     </button>
                                   </div>
                                 </div>
@@ -2312,6 +2335,14 @@ db.addLog({
                               >
                                 <Clock size={13} />
                                 History
+                              </button>
+                              <button 
+                                onClick={() => handleDuplicateCapability(cap)}
+                                className="flex items-center justify-center gap-1.5 bg-theme-btn-active hover:bg-theme-btn-hover text-theme-text-secondary border border-theme-border text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer w-full sm:w-auto"
+                                title="Duplicate routine with same configuration"
+                              >
+                                <Copy size={13} />
+                                Duplicate
                               </button>
                             </div>
                           </div>
