@@ -9,6 +9,7 @@ import { runOrchestrator } from "./server/orchestrator";
 import { db } from "./server/db";
 import { initScheduler } from "./server/scheduler";
 import { createAuthMiddleware } from "./server/authMiddleware";
+import { toolImplementations } from "./server/tools";
 
 if (dns && dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
@@ -498,6 +499,17 @@ except Exception as e:
       const id = db.saveSelfCapability(name, codeSnippet, purpose || '', category || 'general');
       res.json({ status: "success", id });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/web-search", async (req, res) => {
+    try {
+      const { query, depth, category } = req.body;
+      if (!query) return res.status(400).json({ error: "Query is required" });
+      const searchRes = await toolImplementations.web_searching_module({ query, depth, category });
+      res.json(searchRes);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.get("/api/capability-logs/:name", (req, res) => {

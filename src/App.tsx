@@ -10,7 +10,7 @@ import { ExecutionHistoryModal } from './components/ExecutionHistoryModal';
 import { LiveTerminal } from './components/LiveTerminal';
 import { 
   Bot, Trash2, Settings, Minimize2, Maximize2, Menu, Sparkles, RefreshCw, 
-  MessageSquare, Sun, Moon, Palette, Check, Plus, Edit2, Terminal as TerminalIcon, HardDrive, Layout, ChevronRight, ChevronDown, X, Search, Copy, Clock, Bell, Volume2, Download, Folder, MoreHorizontal, Activity, BarChart2, FileDown, Upload, ShieldCheck, TrendingUp, CheckCircle2, XCircle
+  MessageSquare, Sun, Moon, Palette, Check, Plus, Edit2, Terminal as TerminalIcon, HardDrive, Layout, ChevronRight, ChevronDown, X, Search, Copy, Clock, Bell, Volume2, Download, Folder, MoreHorizontal, Activity, BarChart2, FileDown, Upload, ShieldCheck, TrendingUp, CheckCircle2, XCircle, Globe, Brain, Target, Send, Compass
 } from 'lucide-react';
 
 export default function App() {
@@ -139,6 +139,16 @@ db.addLog({
   const [capLogs, setCapLogs] = useState<string[]>([]);
   const [copiedCapId, setCopiedCapId] = useState<string | null>(null);
   const [activeMenuSessionId, setActiveMenuSessionId] = useState<string | null>(null);
+
+  // WebSearching Optimizer State
+  const [webSearchQuery, setWebSearchQuery] = useState('Optimasi modul belajar mandiri otomatis');
+  const [webSearchDepth, setWebSearchDepth] = useState<'quick' | 'standard' | 'deep'>('deep');
+  const [webSearchCategory, setWebSearchCategory] = useState('tech');
+  const [webSearchLoading, setWebSearchLoading] = useState(false);
+  const [webSearchResult, setWebSearchResult] = useState<any>(null);
+  const [webSearchStages, setWebSearchStages] = useState<any>(null);
+  const [webSearchActiveStageTab, setWebSearchActiveStageTab] = useState<'all' | 'analisa' | 'pemahaman' | 'kesimpulan' | 'penerapan'>('all');
+
   const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('ROC_USER_EMAIL') || 'ivansuselo@gmail.com');
   const [userGithub, setUserGithub] = useState<string>(() => localStorage.getItem('ROC_USER_GITHUB') || 'ivansslo');
 
@@ -152,8 +162,8 @@ db.addLog({
   const [backupNotice, setBackupNotice] = useState<string | null>(null);
   const backupFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Self-Development View Mode: 'routines' or 'performance'
-  const [capViewMode, setCapViewMode] = useState<'routines' | 'performance'>('routines');
+  // Self-Development View Mode: 'routines', 'performance', or 'websearch'
+  const [capViewMode, setCapViewMode] = useState<'routines' | 'performance' | 'websearch'>('routines');
 
   const triggerLocalBackupDownload = (isAuto = false) => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -720,6 +730,37 @@ db.addLog({
       }
     } catch (err) {
       console.error("Failed to duplicate capability:", err);
+    }
+  };
+
+  const handleExecuteWebSearch = async () => {
+    if (!webSearchQuery.trim()) return;
+    setWebSearchLoading(true);
+    setWebSearchResult(null);
+    setWebSearchStages(null);
+    try {
+      const res = await fetch('/api/web-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: webSearchQuery,
+          depth: webSearchDepth,
+          category: webSearchCategory
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setWebSearchResult(data);
+        if (data.framework_stages) {
+          setWebSearchStages(data.framework_stages);
+        }
+      } else {
+        console.error("Web search failed:", data.error || data.message);
+      }
+    } catch (err) {
+      console.error("Failed to execute enhanced web search:", err);
+    } finally {
+      setWebSearchLoading(false);
     }
   };
 
@@ -2059,6 +2100,19 @@ db.addLog({
                         <BarChart2 size={14} />
                         Performance View
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCapViewMode('websearch')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
+                          capViewMode === 'websearch'
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-theme-text-muted hover:text-theme-text-primary'
+                        }`}
+                      >
+                        <Globe size={14} />
+                        WebSearching Optimizer
+                      </button>
                     </div>
 
                     <div className="text-[11px] font-mono text-theme-text-muted flex items-center gap-2 pr-2">
@@ -2214,6 +2268,269 @@ db.addLog({
                           </div>
                         )}
                       </div>
+                    </div>
+                  ) : capViewMode === 'websearch' ? (
+                    <div className="space-y-4 mb-6 animate-fade-in">
+                      {/* WebSearch Query Form */}
+                      <div className="bg-theme-sidebar border border-theme-border p-4 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-theme-border pb-3">
+                          <div className="flex items-center gap-2">
+                            <Globe className="text-indigo-500 animate-pulse" size={18} />
+                            <h4 className="text-sm font-bold text-theme-text-primary">Pencarian Web Terpimpin (4-Stage Cognitive WebSearching)</h4>
+                          </div>
+                          <span className="text-[10px] bg-indigo-500/15 text-indigo-400 font-mono px-2 py-0.5 rounded-full border border-indigo-500/20">Advanced Engine</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                          <div className="md:col-span-6 space-y-1">
+                            <label className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider">Kueri Pencarian</label>
+                            <input
+                              type="text"
+                              value={webSearchQuery}
+                              onChange={(e) => setWebSearchQuery(e.target.value)}
+                              placeholder="Masukkan kata kunci atau topik pencarian..."
+                              className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                            />
+                          </div>
+
+                          <div className="md:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider">Kedalaman (Depth)</label>
+                            <select
+                              value={webSearchDepth}
+                              onChange={(e) => setWebSearchDepth(e.target.value as any)}
+                              className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-lg px-2.5 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                            >
+                              <option value="quick">Quick (Cepat & Ringkas)</option>
+                              <option value="standard">Standard (Menengah)</option>
+                              <option value="deep">Deep (Sangat Mendalam)</option>
+                            </select>
+                          </div>
+
+                          <div className="md:col-span-3 space-y-1">
+                            <label className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider">Kategori Fokus</label>
+                            <select
+                              value={webSearchCategory}
+                              onChange={(e) => setWebSearchCategory(e.target.value)}
+                              className="w-full bg-theme-input text-theme-text-primary border border-theme-border rounded-lg px-2.5 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                            >
+                              <option value="tech">Technology / Programming</option>
+                              <option value="productivity">Productivity / Habits</option>
+                              <option value="development">Self-Development Hub</option>
+                              <option value="general">General Knowledge</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Presets */}
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider block">Kueri Cepat (Presets)</span>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { label: "Optimasi Belajar Mandiri Otomatis", query: "Optimasi modul belajar mandiri otomatis", cat: "development" },
+                              { label: "Pola Micro-Frontend React 2026", query: "Pola micro-frontend React 2026", cat: "tech" },
+                              { label: "Metode Kaizen untuk Produktivitas Tim", query: "Metode Kaizen untuk produktivitas tim pengembang", cat: "productivity" },
+                              { label: "Pola Refactoring Memory Leak Node.js", query: "Pola refactoring mengatasi memory leak pada backend Node.js", cat: "tech" }
+                            ].map((preset, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setWebSearchQuery(preset.query);
+                                  setWebSearchCategory(preset.cat);
+                                }}
+                                className="text-[10px] px-2.5 py-1 bg-theme-btn-active hover:bg-theme-btn-hover text-theme-text-secondary rounded-md border border-theme-border cursor-pointer transition-colors"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Execute Button */}
+                        <div className="flex items-center justify-end pt-2 border-t border-theme-border">
+                          <button
+                            type="button"
+                            disabled={webSearchLoading}
+                            onClick={handleExecuteWebSearch}
+                            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer select-none transition-colors"
+                          >
+                            {webSearchLoading ? (
+                              <>
+                                <RefreshCw size={13} className="animate-spin" />
+                                Menganalisa Web...
+                              </>
+                            ) : (
+                              <>
+                                <Search size={13} />
+                                Jalankan Analisis WebSearching
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* WebSearch Loading State */}
+                      {webSearchLoading && (
+                        <div className="bg-theme-sidebar border border-theme-border rounded-xl p-8 text-center space-y-4 animate-pulse">
+                          <div className="mx-auto w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center">
+                            <Compass size={24} className="text-indigo-400 animate-spin" />
+                          </div>
+                          <div className="space-y-1.5 max-w-md mx-auto">
+                            <h5 className="text-xs font-bold text-theme-text-primary">Menembus Kemonotonan Jawaban AI...</h5>
+                            <p className="text-[11px] text-theme-text-muted">
+                              Mengkoneksikan pencarian multi-index, menyusun pilar Analisa, mengurai Pemahaman, merangkum Kesimpulan, dan merumuskan Penerapan praktis ke sistem...
+                            </p>
+                          </div>
+                          <div className="w-48 h-1 bg-theme-border rounded-full mx-auto overflow-hidden relative">
+                            <div className="absolute top-0 left-0 h-full bg-indigo-500 w-1/2 rounded-full animate-infinite-loading" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* WebSearch Result Framework */}
+                      {webSearchStages && !webSearchLoading && (
+                        <div className="space-y-4 animate-fade-in">
+                          {/* Stages Tab Buttons */}
+                          <div className="flex flex-wrap items-center gap-1.5 bg-theme-sidebar border border-theme-border p-1.5 rounded-xl">
+                            {[
+                              { id: 'all', label: 'Tampilkan Semua Tahap', icon: Compass },
+                              { id: 'analisa', label: '1. Analisa', icon: Search },
+                              { id: 'pemahaman', label: '2. Pemahaman', icon: Brain },
+                              { id: 'kesimpulan', label: '3. Kesimpulan', icon: Target },
+                              { id: 'penerapan', label: '4. Penerapan', icon: Send }
+                            ].map((tab) => {
+                              const TabIcon = tab.icon;
+                              return (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => setWebSearchActiveStageTab(tab.id as any)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
+                                    webSearchActiveStageTab === tab.id
+                                      ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/25'
+                                      : 'text-theme-text-muted hover:text-theme-text-primary'
+                                  }`}
+                                >
+                                  <TabIcon size={12} />
+                                  {tab.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Render Stages Content */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* STAGE 1: ANALISA */}
+                            {(webSearchActiveStageTab === 'all' || webSearchActiveStageTab === 'analisa') && (
+                              <div className="bg-theme-sidebar border border-theme-border rounded-xl p-4 space-y-3 flex flex-col justify-between hover:border-indigo-500/30 transition-colors">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 border-b border-theme-border pb-2.5">
+                                    <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-bold flex items-center justify-center">1</span>
+                                    <h5 className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                      <Search size={13} className="text-indigo-400" />
+                                      Analisa Kognitif
+                                    </h5>
+                                  </div>
+                                  <div className="text-xs text-theme-text-secondary whitespace-pre-wrap leading-relaxed font-mono p-2 bg-theme-input rounded-lg border border-theme-border">
+                                    {webSearchStages.analisa}
+                                  </div>
+                                </div>
+                                <div className="text-[10px] font-mono text-indigo-400 flex items-center gap-1.5 bg-indigo-500/5 px-2.5 py-1 rounded-md border border-indigo-500/10 mt-2">
+                                  <CheckCircle2 size={10} />
+                                  Kueri berhasil didekonstruksi & dipetakan
+                                </div>
+                              </div>
+                            )}
+
+                            {/* STAGE 2: PEMAHAMAN */}
+                            {(webSearchActiveStageTab === 'all' || webSearchActiveStageTab === 'pemahaman') && (
+                              <div className="bg-theme-sidebar border border-theme-border rounded-xl p-4 space-y-3 flex flex-col justify-between hover:border-indigo-500/30 transition-colors">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 border-b border-theme-border pb-2.5">
+                                    <span className="w-5 h-5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-bold flex items-center justify-center">2</span>
+                                    <h5 className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                      <Brain size={13} className="text-amber-400" />
+                                      Pemahaman Kontekstual
+                                    </h5>
+                                  </div>
+                                  <div className="text-xs text-theme-text-secondary whitespace-pre-wrap leading-relaxed font-mono p-2 bg-theme-input rounded-lg border border-theme-border">
+                                    {webSearchStages.pemahaman}
+                                  </div>
+                                </div>
+                                <div className="text-[10px] font-mono text-amber-400 flex items-center gap-1.5 bg-amber-500/5 px-2.5 py-1 rounded-md border border-amber-500/10 mt-2">
+                                  <CheckCircle2 size={10} />
+                                  Pencarian langsung berhasil & kontekstualisasi siap
+                                </div>
+                              </div>
+                            )}
+
+                            {/* STAGE 3: KESIMPULAN */}
+                            {(webSearchActiveStageTab === 'all' || webSearchActiveStageTab === 'kesimpulan') && (
+                              <div className="bg-theme-sidebar border border-theme-border rounded-xl p-4 space-y-3 flex flex-col justify-between hover:border-indigo-500/30 transition-colors">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 border-b border-theme-border pb-2.5">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold flex items-center justify-center">3</span>
+                                    <h5 className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                      <Target size={13} className="text-emerald-400" />
+                                      Kesimpulan Terstruktur
+                                    </h5>
+                                  </div>
+                                  <div className="text-xs text-theme-text-secondary whitespace-pre-wrap leading-relaxed font-mono p-2 bg-theme-input rounded-lg border border-theme-border">
+                                    {webSearchStages.kesimpulan}
+                                  </div>
+                                </div>
+                                <div className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5 bg-emerald-500/5 px-2.5 py-1 rounded-md border border-emerald-500/10 mt-2">
+                                  <CheckCircle2 size={10} />
+                                  Pola modularitas terbukti aman & optimal
+                                </div>
+                              </div>
+                            )}
+
+                            {/* STAGE 4: PENERAPAN */}
+                            {(webSearchActiveStageTab === 'all' || webSearchActiveStageTab === 'penerapan') && (
+                              <div className="bg-theme-sidebar border border-theme-border rounded-xl p-4 space-y-3 flex flex-col justify-between hover:border-indigo-500/30 transition-colors">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 border-b border-theme-border pb-2.5">
+                                    <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-bold flex items-center justify-center">4</span>
+                                    <h5 className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                                      <Send size={13} className="text-indigo-400" />
+                                      Penerapan Adaptif
+                                    </h5>
+                                  </div>
+                                  <div className="text-xs text-theme-text-secondary whitespace-pre-wrap leading-relaxed font-mono p-2 bg-theme-input rounded-lg border border-theme-border">
+                                    {webSearchStages.penerapan}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row items-center gap-2 mt-2">
+                                  <div className="text-[10px] font-mono text-indigo-400 flex items-center gap-1.5 bg-indigo-500/5 px-2.5 py-1 rounded-md border border-indigo-500/10 flex-1 w-full sm:w-auto">
+                                    <CheckCircle2 size={10} />
+                                    Kode adaptasi siap diintegrasikan
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      // Preset capability creation based on result
+                                      setNewCapName(`WebSearch_${webSearchCategory.charAt(0).toUpperCase() + webSearchCategory.slice(1)}_${Math.floor(Math.random() * 900 + 100)}`);
+                                      setNewCapPurpose(`Hasil optimasi 4-Stage WebSearch untuk query: "${webSearchQuery.substring(0, 50)}..."`);
+                                      setNewCapSnippet(`// Hasil adaptasi dari WebSearching Optimizer\nconsole.log("Menjalankan instruksi optimasi hasil pencarian.");\n// Deskripsi langkah:\n// ${webSearchStages.kesimpulan.split('\n').join('\n// ')}`);
+                                      setNewCapCat(webSearchCategory);
+                                      setCapViewMode('routines');
+                                      // Scroll to capability creator
+                                      const creatorElement = document.getElementById('capability-creator-card');
+                                      if (creatorElement) {
+                                        creatorElement.scrollIntoView({ behavior: 'smooth' });
+                                      }
+                                    }}
+                                    className="text-[10px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded-lg cursor-pointer transition-colors w-full sm:w-auto text-center"
+                                  >
+                                    Jadikan Rutin Baru
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
