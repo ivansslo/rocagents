@@ -1790,7 +1790,7 @@
       "key": "WebVirtCloud_NodeConfig",
       "value": "QEMU/KVM Libvirt Hypervisor on OCI Singapore VM (IP: 161.118.253.28) connected to WebVirtCloud control panel with noVNC stream.",
       "category": "WebVirtCloud",
-      "updatedAt": "2026-07-23T19:49:38.075Z"
+      "updatedAt": "2026-07-23T19:52:06.389Z"
     },
     {
       "key": "AuroRa_Ulti_X_SelfUpgrade",
