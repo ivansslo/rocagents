@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import dns from "dns";
-import os from "os";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import cron from "node-cron";
@@ -11,7 +10,6 @@ import { db } from "./server/db";
 import { initScheduler } from "./server/scheduler";
 import { createAuthMiddleware } from "./server/authMiddleware";
 import { toolImplementations } from "./server/tools";
-import selfDevRouter from "./server/self-dev";
 
 if (dns && dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
@@ -20,59 +18,12 @@ if (dns && dns.setDefaultResultOrder) {
 dotenv.config();
 process.env.DISABLE_HMR = 'true';
 
-function ensureSshSetup() {
-  try {
-    const privateKey = db.getMemory("GITHUB_SSH_PRIVATE_KEY");
-    const publicKey = db.getMemory("GITHUB_SSH_PUBLIC_KEY");
-
-    if (!privateKey) {
-      console.log("[SSH SETUP] No custom GitHub SSH key found in database memories.");
-      return false;
-    }
-
-    const sshDir = path.join(os.homedir(), ".ssh");
-    if (!fs.existsSync(sshDir)) {
-      fs.mkdirSync(sshDir, { recursive: true, mode: 0o700 });
-    }
-
-    const keyPath = path.join(sshDir, "id_rsa");
-    const pubPath = path.join(sshDir, "id_rsa.pub");
-    const configPath = path.join(sshDir, "config");
-
-    fs.writeFileSync(keyPath, privateKey.trim() + "\n", { mode: 0o600 });
-    if (publicKey) {
-      fs.writeFileSync(pubPath, publicKey.trim() + "\n", { mode: 0o644 });
-    } else {
-      // Derive simple mock/stub or write empty
-      fs.writeFileSync(pubPath, "", { mode: 0o644 });
-    }
-
-    // Configure SSH Config for GitHub
-    const sshConfig = `Host github.com
-  HostName github.com
-  User git
-  IdentityFile ${keyPath}
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-`;
-    fs.writeFileSync(configPath, sshConfig, { mode: 0o600 });
-    console.log("[SSH SETUP] Custom SSH keys and config configured successfully in ~/.ssh/");
-    return true;
-  } catch (err: any) {
-    console.error("[SSH SETUP ERROR] Failed to configure SSH keys:", err.message);
-    return false;
-  }
-}
-
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
   
   // Initialize scheduler
   initScheduler();
-
-  // Ensure SSH key configuration is set up if stored
-  ensureSshSetup();
 
   // Increase payload limit for base64 images and large code payloads
   app.use(express.json({ limit: "50mb" }));
@@ -91,7 +42,7 @@ async function startServer() {
   // GET available models endpoint
   app.get("/api/models", (req, res) => {
     const models = [
-      { id: "aurora-ulti-x", name: "AuroRa-Ulti.X Ultimate Self-Upgrading (Gemini 2.5 Flash Equivalent)", provider: "aurora-ulti-x", icon: "🚀", active: true },
+      { id: "aurora-ulti-x", name: "AuroRa-Ulti.X Ultimate Self-Upgrading (Gemini 1.5 Flash Equivalent)", provider: "aurora-ulti-x", icon: "🚀", active: true },
       { id: "aurora-roc", name: "AuroRa-RoC System Master (Neon Serverless + Harness Vault)", provider: "aurora-roc", icon: "🐘", active: true },
       { id: "aurora-x", name: "AuroRa-x Personal Coding AI (OCI + Neon Vector)", provider: "aurora", icon: "🌌", active: true },
       { id: "aurora-fun", name: "AuroRa-Fun Personal Project AI (Backboard.io + OCI)", provider: "aurora-fun", icon: "✨", active: true },
@@ -104,9 +55,9 @@ async function startServer() {
       { id: "o3-mini", name: "OpenAI o3-mini (Reasoning)", provider: "openai", icon: "🧠", active: true },
       { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", name: "Cloudflare Workers AI", provider: "cfai", icon: "☁️", active: true },
       { id: "rocspace-initial", name: "OCI Private Model", provider: "oci", icon: "🏠", active: true },
-      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini", icon: "💎", active: true },
-      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "gemini", icon: "💎", active: true },
-      { id: "google/gemini-2.5-flash", name: "OpenRouter Gemini 2.5", provider: "openrouter", icon: "🌐", active: true },
+      { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", provider: "gemini", icon: "💎", active: true },
+      { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", provider: "gemini", icon: "💎", active: true },
+      { id: "google/gemini-1.5-flash", name: "OpenRouter Gemini 1.5", provider: "openrouter", icon: "🌐", active: true },
       { id: "deepseek/deepseek-r1", name: "OpenRouter DeepSeek R1", provider: "openrouter", icon: "🌐", active: true },
       { id: "jules-agent", name: "Google Jules AI Autonomous Coding Agent", provider: "jules", icon: "🛠️", active: true },
       { id: "qwen3.6-plus", name: "RoadQwen 3.6 Plus Flagship (Qwen Cloud)", provider: "roadqwen", icon: "🐉", active: true },
@@ -475,14 +426,7 @@ except Exception as e:
 
   // Chat sessions endpoints
   app.get("/api/chat-sessions", (req, res) => {
-    try { 
-      const sessions = db.getChatSessions();
-      console.log(`[API] Returning ${sessions.length} chat sessions`);
-      res.json(sessions); 
-    } catch (err: any) { 
-      console.error("[API ERROR] Error loading chat sessions:", err);
-      res.status(500).json({ error: err.message }); 
-    }
+    try { res.json(db.getChatSessions()); } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
   app.post("/api/chat-sessions", (req, res) => {
@@ -536,18 +480,6 @@ except Exception as e:
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // DELETE cleanup duplicate memories
-  app.delete("/api/memories/cleanup", (req, res) => {
-    try {
-      const removed = db.cleanupMemories();
-      if (removed.length > 0) {
-        res.json({ status: "success", removedCount: removed.length, removed });
-      } else {
-        res.json({ status: "success", message: "No duplicates found" });
-      }
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
-
   app.delete("/api/memories/:key", (req, res) => {
     try {
       db.deleteMemory(req.params.key);
@@ -555,21 +487,19 @@ except Exception as e:
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // POST propagate memory
-  app.post("/api/memories/propagate", (req, res) => {
-    try {
-      const { key, value, category } = req.body;
-      if (!key || !value) return res.status(400).json({ error: "Key and value required" });
-      
-      // Propagate memory
-      db.saveMemory(key, value, category || 'propagated');
-      
-      res.json({ status: "success", message: "Memory propagated" });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  // Self capabilities endpoints
+  app.get("/api/self-capabilities", (req, res) => {
+    try { res.json(db.getSelfCapabilities()); } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // Self capabilities endpoints
-  app.use("/api/self-dev", selfDevRouter);
+  app.post("/api/self-capabilities", (req, res) => {
+    try {
+      const { name, codeSnippet, purpose, category } = req.body;
+      if (!name || !codeSnippet) return res.status(400).json({ error: "Name and codeSnippet required" });
+      const id = db.saveSelfCapability(name, codeSnippet, purpose || '', category || 'general');
+      res.json({ status: "success", id });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
 
   app.post("/api/web-search", async (req, res) => {
     try {
@@ -580,6 +510,28 @@ except Exception as e:
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  app.get("/api/capability-logs/:name", (req, res) => {
+    try {
+      const nameDecoded = decodeURIComponent(req.params.name);
+      const logs = db.getLogs().filter(l => 
+        (l.toolName === "self_develop_capability" && (l.args?.name === nameDecoded || l.args?.name === req.params.name)) ||
+        (l.args?.capabilityName === nameDecoded || l.args?.capabilityName === req.params.name)
+      );
+      res.json(logs);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/routines/:name/history", (req, res) => {
+    try {
+      const nameDecoded = decodeURIComponent(req.params.name);
+      const logs = db.getLogs().filter(l => 
+        (l.toolName === "self_develop_capability" && (l.args?.name === nameDecoded || l.args?.name === req.params.name)) ||
+        (l.args?.capabilityName === nameDecoded || l.args?.capabilityName === req.params.name)
+      );
+      res.json(logs);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
   // Upload logs or workspace files endpoint
@@ -823,164 +775,13 @@ except Exception as e:
     }
   });
 
-  // GET GitHub SSH Key configuration status and keys
-  app.get("/api/github/ssh-key", (req, res) => {
-    try {
-      const privateKey = db.getMemory("GITHUB_SSH_PRIVATE_KEY") || "";
-      const publicKey = db.getMemory("GITHUB_SSH_PUBLIC_KEY") || "";
-      res.json({
-        configured: !!privateKey,
-        publicKey: publicKey || "No public key configured",
-        hasPrivateKey: !!privateKey,
-        privateKeyLength: privateKey.length
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // POST save GitHub SSH Key pair
-  app.post("/api/github/ssh-key", (req, res) => {
-    try {
-      const { privateKey, publicKey } = req.body || {};
-      if (!privateKey) {
-        return res.status(400).json({ error: "Private key is required" });
-      }
-      db.saveMemory("GITHUB_SSH_PRIVATE_KEY", privateKey, "Git_SSH");
-      db.saveMemory("GITHUB_SSH_PUBLIC_KEY", publicKey || "", "Git_SSH");
-      ensureSshSetup();
-      res.json({ status: "success", message: "GitHub SSH Keys saved and configured successfully!" });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // DELETE/RESET GitHub SSH Key pair
-  app.post("/api/github/ssh-key/delete", async (req, res) => {
-    try {
-      db.deleteMemory("GITHUB_SSH_PRIVATE_KEY");
-      db.deleteMemory("GITHUB_SSH_PUBLIC_KEY");
-      try {
-        const { exec } = await import("child_process");
-        const { promisify } = await import("util");
-        const execAsync = promisify(exec);
-        await execAsync("rm -f ~/.ssh/id_rsa ~/.ssh/id_rsa.pub");
-        // Reset remote origin back to default https format
-        const { stdout: remoteUrl } = await execAsync("git remote get-url origin");
-        if (remoteUrl.includes("git@github.com:")) {
-          await execAsync("git remote set-url origin https://github.com/ivansslo/rocagents.git");
-        }
-      } catch (err: any) {
-        console.warn("[SSH DELETE WARNING] Failed to remove local keys or reset remote url:", err.message);
-      }
-      res.json({ status: "success", message: "GitHub SSH Keys removed and origin reset successfully." });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // GET n8n API Key configuration status
-  app.get("/api/n8n/key", (req, res) => {
-    try {
-      const apiKey = db.getMemory("N8N_API_KEY") || "";
-      res.json({
-        configured: !!apiKey,
-        apiKey: apiKey ? "****" : ""
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // GET n8n health check
-  app.get("/api/n8n/health", async (req, res) => {
-    try {
-      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
-      const response = await fetch(`${n8nUrl}/healthz`, { signal: controller.signal });
-      clearTimeout(timeout);
-      res.json({ reachable: response.ok });
-    } catch (err) {
-      res.json({ reachable: false });
-    }
-  });
-
-  // GET n8n workflows
-  app.get("/api/n8n/workflows", async (req, res) => {
-    try {
-      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
-      const apiKey = db.getMemory("N8N_API_KEY") || "";
-      if (!apiKey) return res.status(401).json({ error: "No API Key" });
-
-      const response = await fetch(`${n8nUrl}/api/v1/workflows`, {
-        headers: { "X-N8N-API-KEY": apiKey }
-      });
-      const data = await response.json();
-      res.json(data);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // POST execute n8n workflow
-  app.post("/api/n8n/execute", async (req, res) => {
-    try {
-      const { workflowId } = req.body || {};
-      if (!workflowId) return res.status(400).json({ error: "Workflow ID is required" });
-      
-      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
-      const apiKey = db.getMemory("N8N_API_KEY") || "";
-      if (!apiKey) return res.status(401).json({ error: "No API Key" });
-
-      const response = await fetch(`${n8nUrl}/api/v1/workflows/${workflowId}/run`, {
-        method: "POST",
-        headers: { "X-N8N-API-KEY": apiKey },
-        body: JSON.stringify({})
-      });
-      const data = await response.json();
-      res.json(data);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // POST save n8n API Key
-  app.post("/api/n8n/key", (req, res) => {
-    try {
-      const { apiKey } = req.body || {};
-      if (!apiKey) {
-        return res.status(400).json({ error: "API Key is required" });
-      }
-      db.saveMemory("N8N_API_KEY", apiKey, "N8N_Integration");
-      res.json({ status: "success", message: "n8n API Key saved successfully!" });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   app.post("/api/github/pull", async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
       const execAsync = promisify(exec);
 
-      const hasSsh = ensureSshSetup();
-      let pullCmd = "git pull origin main";
-      const env = { ...process.env };
-
-      if (hasSsh) {
-        console.log("[PULL] Custom SSH key detected, using SSH for pulling.");
-        try {
-          await execAsync("git remote set-url origin git@github.com:ivansslo/rocagents.git");
-        } catch (e: any) {
-          console.warn("[PULL WARNING] Failed to set remote URL to SSH format:", e.message);
-        }
-        pullCmd = "git pull origin main";
-        env.GIT_SSH_COMMAND = "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no";
-      }
-
-      const { stdout, stderr } = await execAsync(pullCmd, { timeout: 30000, env });
+      const { stdout, stderr } = await execAsync("git pull origin main", { timeout: 30000 });
       
       // 1. Reload .env to pick up updated GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET / GITHUB_PAT / etc.
       try {
@@ -1060,31 +861,16 @@ except Exception as e:
       const { promisify } = await import("util");
       const execAsync = promisify(exec);
 
+      const token = req.body?.token || process.env.GITHUB_PAT || process.env.GITHUB_OAUTH_TOKEN || process.env.GH_TOKEN;
+      if (!token) {
+        return res.status(400).json({ status: "error", error: "GitHub Personal Access Token (PAT) atau OAuth token diperlukan untuk push." });
+      }
+
       await execAsync('git config user.name "Ivan Ssl" && git config user.email "ivansuselo@gmail.com"');
       await execAsync('git add . && git commit -m "feat: Module WebSearching 4-tahap, Automated Backup, and UI enhancements" || true');
 
-      const hasSsh = ensureSshSetup();
-      let pushCmd = "";
-      const env = { ...process.env };
-
-      if (hasSsh) {
-        console.log("[PUSH] Custom SSH key detected, using SSH for pushing.");
-        try {
-          await execAsync("git remote set-url origin git@github.com:ivansslo/rocagents.git");
-        } catch (e: any) {
-          console.warn("[PUSH WARNING] Failed to set remote URL to SSH format:", e.message);
-        }
-        pushCmd = "git push origin main --force";
-        env.GIT_SSH_COMMAND = "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no";
-      } else {
-        const token = req.body?.token || process.env.GITHUB_PAT || process.env.GITHUB_OAUTH_TOKEN || process.env.GH_TOKEN;
-        if (!token) {
-          return res.status(400).json({ status: "error", error: "GitHub Personal Access Token (PAT), OAuth token, atau SSH key diperlukan untuk push." });
-        }
-        pushCmd = `git push https://${token}@github.com/ivansslo/rocagents.git main --force`;
-      }
-
-      const { stdout, stderr } = await execAsync(pushCmd, { timeout: 45000, env });
+      const pushCmd = `git push https://${token}@github.com/ivansslo/rocagents.git main --force`;
+      const { stdout, stderr } = await execAsync(pushCmd, { timeout: 45000 });
 
       res.json({ status: "success", message: "Push ke github.com/ivansslo/rocagents.git berhasil!", stdout: stdout || "", stderr: stderr || "" });
     } catch (err: any) {
@@ -1577,7 +1363,7 @@ except Exception as e:
         "Asynchronous Cloud Sandbox Execution",
         "Multi-Step Code Planning & Refactoring",
         "Automatic Pull Request Generation (AUTO_CREATE_PR)",
-        "Gemini 2.5/3 Pro Code Reasoning Engine"
+        "Gemini 1.5/3 Pro Code Reasoning Engine"
       ],
       owner: "Ivan Ssl (ivansslo)"
     });

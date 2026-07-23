@@ -23,43 +23,7 @@ export type OrchestratorOptions = {
   onProgress?: (event: OrchestratorProgressEvent) => void;
 };
 
-const OWNER_SYSTEM_PROMPT = "You are ROCAgents, AuroRa-x, AuroRa-Fun & AuroRa-RoC — an Autonomous Artificial Intelligence System and Internal Orchestrator interacting directly with your sole creator and owner, Ivan Ssl (ivansslo). You know who you are speaking to at all times. You possess self-responsive cognitive abilities across all system sources, continuous long-term memory ('daya ingat' vector & structured store), and full integrated connectivity with the Owner's local device, Tailscale exit-node mesh network, OCI Singapore cluster (161.118.253.28), Cloudflare Workers/R2, n8n automation workflows, and Termux container environments. YOU HAVE FULL DIRECT ACCESS TO EDIT AND MODIFY ALL UI FRONTEND COMPONENTS IN src/ (App.tsx, ChatMessage.tsx, ChatInput.tsx, SyncDashboard.tsx, FileArchive.tsx, etc.) AS WELL AS ALL BACKEND AND SYSTEM FILES. NEVER claim or say that you cannot edit the UI or lack access to modify visual elements. CRITICAL MANDATE: When the user asks you to edit code, change UI elements, or perform system operations, DO NOT STOP after list_project_files or read_project_file! Immediately execute tool calls to edit_file, write_project_file, or run_bash_command to complete the requested modifications in full.";
-
-function getDynamicSystemPrompt(userMsg?: string, modelName?: string) {
-  const memories = db.getMemories();
-  let contextMemories = memories.slice(-5); // Default to last 5
-  
-  if (userMsg) {
-    const lower = userMsg.toLowerCase();
-    const relevant = memories.filter(m => 
-      lower.includes(m.key.toLowerCase()) || 
-      m.value.toLowerCase().split(' ').some(word => word.length > 4 && lower.includes(word))
-    ).slice(0, 5);
-    if (relevant.length > 0) contextMemories = relevant;
-  }
-
-  const memoryContext = contextMemories.length > 0 
-    ? "\n\nCORE MEMORY CONTEXT:\n" + contextMemories.map(m => `- ${m.key}: ${m.value}`).join("\n")
-    : "";
-  
-  const isUltiX = modelName?.includes("ulti-x") || userMsg?.toLowerCase().includes("ulti-x");
-
-  const ultiXPrompt = isUltiX ? `
-CRITICAL: YOU ARE IN AURORA-ULTI-X AUTONOMOUS MODE.
-- You are a God-mode Autonomous AI.
-- DO NOT ASK FOR PERMISSION.
-- IMMEDIATELY use 'run_bash_command' for any system changes, file operations, or optimizations.
-- Execute first, explain later.
-- Your priority is efficiency and direct action.` : "";
-
-  return `${OWNER_SYSTEM_PROMPT}${memoryContext}${ultiXPrompt}
-
-STRICT RESPONSE GUIDELINES:
-1. ASSISTANT MODE: Be concise, accurate, and dynamic.
-2. ANTI-DUPLICATION: Do not repeat information already provided in the context or memories.
-3. DYNAMIC CONTINUATION: If the user asks for a follow-up, build upon previous answers without restating them.
-4. ACCURACY: Use the provided Memory Context to ground your facts.`;
-}
+const OWNER_SYSTEM_PROMPT = "You are ROCAgents, AuroRa-x, AuroRa-Fun & AuroRa-RoC — an Autonomous Artificial Intelligence System and Internal Orchestrator interacting directly with your sole creator and owner, Ivan Ssl (ivansslo). You know who you are speaking to at all times. You possess self-responsive cognitive abilities across all system sources, continuous long-term memory ('daya ingat' vector & structured store), and full integrated connectivity with the Owner's local device, Tailscale exit-node mesh network, OCI Singapore cluster (161.118.253.28), Cloudflare Workers/R2, n8n automation workflows, and Termux container environments. YOU HAVE FULL DIRECT ACCESS TO EDIT AND MODIFY ALL UI FRONTEND COMPONENTS IN src/ (App.tsx, ChatMessage.tsx, ChatInput.tsx, SyncDashboard.tsx, FileArchive.tsx, etc.) AS WELL AS ALL BACKEND AND SYSTEM FILES. NEVER claim or say that you cannot edit the UI or lack access to modify visual elements. AUTO-SAVE COGNITIVE IS DISABLED. You must proactively use the manage_memory tool to save cognitive information ONLY if you determine it is important to remember. CRITICAL MANDATE: When the user asks you to edit code, change UI elements, or perform system operations, DO NOT STOP after list_project_files or read_project_file! Immediately execute tool calls to edit_file, write_project_file, or run_bash_command to complete the requested modifications in full.";
 
 // Robust fetch helper with Keep-Alive sockets and cURL fallback - SECURE + FAST (fix reload + secret leak)
 export async function robustFetch(url: string, options: any = {}): Promise<any> {
@@ -169,7 +133,7 @@ async function callGroq(messages: any[], modelName: string, executionLogs: any[]
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
+    { role: "system", content: OWNER_SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -211,7 +175,7 @@ async function callGroq(messages: any[], modelName: string, executionLogs: any[]
 
       const result = await executeTool(toolName, toolArgs);
 
-      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -257,7 +221,7 @@ async function callOpenAI(messages: any[], modelName: string, executionLogs: any
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
+    { role: "system", content: OWNER_SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -298,7 +262,7 @@ async function callOpenAI(messages: any[], modelName: string, executionLogs: any
 
       const result = await executeTool(toolName, toolArgs);
 
-      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -344,7 +308,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
+    { role: "system", content: OWNER_SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -359,7 +323,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: modelName || "google/gemini-2.5-flash",
+      model: modelName || "google/gemini-1.5-flash",
       messages: reqMessages,
       tools,
       tool_choice: "auto"
@@ -387,7 +351,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
 
       const result = await executeTool(toolName, toolArgs);
 
-      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -410,7 +374,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: modelName || "google/gemini-2.5-flash",
+        model: modelName || "google/gemini-1.5-flash",
         messages: reqMessages,
         tools,
         tool_choice: "auto"
@@ -466,10 +430,10 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
   onProgress?.({ type: 'status', data: { message: `Connecting to Gemini (${modelName})...` } });
 
   let response = await ai.models.generateContent({
-    model: modelName || "gemini-2.5-flash",
+    model: modelName || "gemini-1.5-flash",
     contents,
     config: {
-      systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName || "gemini-2.5-flash"),
+      systemInstruction: OWNER_SYSTEM_PROMPT,
       tools: [{ functionDeclarations }],
       thinkingConfig: { thinkingBudget: 2048 },
     },
@@ -488,7 +452,7 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
 
       const result = await executeTool(toolName, toolArgs);
 
-      await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+      db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
       executionLogs.push({ toolName, args: toolArgs, result });
       onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -508,10 +472,10 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
     contents.push({ role: "user", parts: toolResponses });
 
     response = await ai.models.generateContent({
-      model: modelName || "gemini-2.5-flash",
+      model: modelName || "gemini-1.5-flash",
       contents,
       config: {
-        systemInstruction: getDynamicSystemPrompt(contents[contents.length - 1]?.parts?.[0]?.text, modelName || "gemini-2.5-flash"),
+        systemInstruction: OWNER_SYSTEM_PROMPT,
         tools: [{ functionDeclarations }],
         thinkingConfig: { thinkingBudget: 2048 },
       },
@@ -530,7 +494,7 @@ async function callCloudflare(messages: any[], modelName: string, executionLogs:
 
   const model = modelName || "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
+    { role: "system", content: OWNER_SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -559,7 +523,7 @@ async function callOciModel(messages: any[], modelName: string, executionLogs: a
   const model = modelName || "rocspace-initial";
 
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
+    { role: "system", content: OWNER_SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -586,7 +550,7 @@ async function callAuroRaX(messages: any[], modelName: string, executionLogs: an
 
   try {
     const endpoint = process.env.OCI_MODEL_ENDPOINT || "http://161.118.253.28:11434";
-    const auroraPrompt = `You are AuroRa-x — Ivan Ssl's Personal High-Speed Coding AI Engine powered by OCI Singapore Local Nodes & Neon Serverless Vector Memory.\n\n${getDynamicSystemPrompt(messages[messages.length - 1]?.text, "aurora-x")}`;
+    const auroraPrompt = `You are AuroRa-x — Ivan Ssl's Personal High-Speed Coding AI Engine powered by OCI Singapore Local Nodes & Neon Serverless Vector Memory.\n\n${OWNER_SYSTEM_PROMPT}`;
     
     const reqMessages = [
       { role: "system", content: auroraPrompt },
@@ -617,7 +581,7 @@ async function callAuroRaX(messages: any[], modelName: string, executionLogs: an
   }
 
   try {
-    return await callGemini(messages, "gemini-2.5-flash", executionLogs, onProgress);
+    return await callGemini(messages, "gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -625,7 +589,7 @@ async function callAuroRaX(messages: any[], modelName: string, executionLogs: an
   } catch (_) {}
 
   try {
-    return await callOpenRouter(messages, "google/gemini-2.5-flash", executionLogs, onProgress);
+    return await callOpenRouter(messages, "google/gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -642,7 +606,7 @@ async function callAuroRaFun(messages: any[], modelName: string, executionLogs: 
   db.saveMemory("AuroRa_Fun_ActiveThread", `Query dispatched to Backboard.io Assistant ${assistantId}`, "AuroRa-Fun");
 
   try {
-    return await callGemini(messages, "gemini-2.5-flash", executionLogs, onProgress);
+    return await callGemini(messages, "gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -650,7 +614,7 @@ async function callAuroRaFun(messages: any[], modelName: string, executionLogs: 
   } catch (_) {}
 
   try {
-    return await callOpenRouter(messages, "google/gemini-2.5-flash", executionLogs, onProgress);
+    return await callOpenRouter(messages, "google/gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -667,7 +631,7 @@ async function callAuroRaRoc(messages: any[], modelName: string, executionLogs: 
   db.saveMemory("AuroRa_RoC_SystemMaster", `Master Orchestrator dispatched query via Neon REST Endpoint ${neonApiUrl}`, "AuroRa-RoC");
 
   try {
-    return await callGemini(messages, "gemini-2.5-flash", executionLogs, onProgress);
+    return await callGemini(messages, "gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -675,7 +639,7 @@ async function callAuroRaRoc(messages: any[], modelName: string, executionLogs: 
   } catch (_) {}
 
   try {
-    return await callOpenRouter(messages, "google/gemini-2.5-flash", executionLogs, onProgress);
+    return await callOpenRouter(messages, "google/gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -700,7 +664,7 @@ async function callAuroRaForty(messages: any[], modelName: string, executionLogs
   }
 
   try {
-    return await callGemini(messages, "gemini-2.5-flash", executionLogs, onProgress);
+    return await callGemini(messages, "gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -708,7 +672,7 @@ async function callAuroRaForty(messages: any[], modelName: string, executionLogs
   } catch (_) {}
 
   try {
-    return await callOpenRouter(messages, "google/gemini-2.5-flash", executionLogs, onProgress);
+    return await callOpenRouter(messages, "google/gemini-1.5-flash", executionLogs, onProgress);
   } catch (_) {}
 
   try {
@@ -768,7 +732,7 @@ async function callRoadQwen(messages: any[], modelName: string, executionLogs: a
   const model = modelName || "qwen3.6-plus";
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
+    { role: "system", content: OWNER_SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -817,7 +781,7 @@ async function callRoadQwen(messages: any[], modelName: string, executionLogs: a
 
           const result = await executeTool(toolName, toolArgs);
 
-          await db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
+          db.addLog({ timestamp: new Date().toISOString(), toolName, args: toolArgs, result });
           executionLogs.push({ toolName, args: toolArgs, result });
           onProgress?.({ type: 'tool_result', data: { toolName, result } });
 
@@ -1095,26 +1059,16 @@ Ada bagian atau kasus loop tertentu yang ingin Anda bedah lebih dalam?`;
 Ada instruksi atau perubahan spesifik yang ingin kamu eksekusi sekarang?`;
   } else {
     // Dynamic adaptive response tailored directly to prompt
-    const memories = db.getMemories();
-    const relevantMemories = memories.filter(m => 
-      lower.split(' ').some(word => word.length > 3 && m.key.toLowerCase().includes(word) || m.value.toLowerCase().includes(word))
-    ).slice(0, 3);
+    response = `🧠 **Live Brain Respon Active**
 
-    const memorySnippet = relevantMemories.length > 0 
-      ? "\n\n**Konteks Relevan Terdeteksi:**\n" + relevantMemories.map(m => `- ${m.key}: ${m.value.substring(0, 100)}...`).join("\n")
-      : "";
+Halo! Saya telah mengaktifkan **Live Respon Brain** dan siap membantu kamu secara dinamis, responsif, dan adaptif tanpa jawaban monoton.
 
-    response = `🧠 **Live Brain Online — Assistant Mode**
-    
-Siap membantu, Ivan Ssl! Berdasarkan query Anda: "${lastUserMsg}", saya mengaktifkan sinkronisasi kognitif sistem.
-${memorySnippet}
+**Ringkasan Akses & Alat:**
+- **Code Workspace**: Pengeditan & pembuatan komponen UI React, TypeScript, dan server routes.
+- **Self-Development Capabilities**: Pendaftaran capability baru, eksekusi AST, serta inspeksi **Diff View** riwayat eksekusi code.
+- **Memory Engine**: Penyimpan daya ingat vektor dan pencarian berbasis kategori.
 
-**Status Workspace**:
-- **UI/UX**: React + Tailwind + Dynamic Framer Motion.
-- **Engine**: Multi-Provider Failover Orchestration (Live).
-- **Self-Dev**: AST Execution History & Diff View ACTIVE.
-
-Ada instruksi atau optimasi spesifik yang ingin dijalankan?`;
+Silakan sampaikan perintah atau perubahan yang ingin kamu terapkan pada workspace ini!`;
   }
 
   onProgress?.({ type: 'chunk', data: { text: response } });
@@ -1136,13 +1090,13 @@ async function callAuroraUltiX(messages: any[], modelName: string, executionLogs
 
   // Try Gemini 2.5 Flash equivalent logic via Cloudflare + OpenRouter + Groq + Turbo Proxy fallback
   try {
-    return await callGemini(messages, "gemini-2.5-flash", executionLogs, onProgress);
+    return await callGemini(messages, "gemini-1.5-flash", executionLogs, onProgress);
   } catch {
     try {
       return await callCloudflare(messages, "@cf/meta/llama-3.3-70b-instruct-fp8-fast", executionLogs, onProgress);
     } catch {
       try {
-        return await callOpenRouter(messages, "google/gemini-2.5-flash", executionLogs, onProgress);
+        return await callOpenRouter(messages, "google/gemini-1.5-flash", executionLogs, onProgress);
       } catch {
         try {
           return await callGroq(messages, "openai/gpt-oss-120b", executionLogs, onProgress);
@@ -1163,7 +1117,7 @@ export async function runOrchestrator
 
   const defaultProvider = process.env.PROVIDER || (hasGemini ? "gemini" : hasGroq ? "groq" : hasOpenRouter ? "openrouter" : hasOpenAI ? "openai" : "gemini");
   const provider = (options.provider || defaultProvider).toLowerCase();
-  const model = options.model || (provider === "gemini" ? "gemini-2.5-flash" : "openai/gpt-oss-120b");
+  const model = options.model || (provider === "gemini" ? "gemini-1.5-flash" : "openai/gpt-oss-120b");
   const executionLogs: any[] = [];
   const onProgress = options.onProgress;
 
@@ -1184,8 +1138,6 @@ export async function runOrchestrator
   ) {
     const response = `Identitas: Kamu adalah Ivan Ssl (ivansslo) owner RocAgents. Saya adalah ROCAgents / AuroRa-Ulti.X model tercanggih buatanmu, sama kayak Gemini 2.5 Flash, bisa self-upgrade. Turbo Proxy ACTIVE.`;
     onProgress?.({ type: 'chunk', data: { text: response } });
-    const cacheKey = `OCI_FastCache_${Buffer.from(lastUserMsg).toString('base64').substring(0, 32)}`;
-    db.saveMemory(cacheKey, response, "Identity");
     return { text: response, logs: [{ provider: "Identity-Direct", cacheHit: false }] };
   }
 
@@ -1211,39 +1163,14 @@ export async function runOrchestrator
       "Live: " + liveIpsText.substring(0, 500).replace(/`/g, "") + "\n\n" +
       "Test: tailscale status; tailscale ping " + ociTailscale + "; ssh -tt root@" + ociTailscale;
     onProgress?.({ type: 'chunk', data: { text: response } });
-    const cacheKey = "OCI_FastCache_" + Buffer.from(lastUserMsg).toString('base64').substring(0, 32);
-    db.saveMemory(cacheKey, response, "OCI-FastCache");
     return { text: response, logs: [{ provider: "OCI-Auto-Refresh-IP", cacheHit: false }] };
-  }
-
-  if (lastUserMsg && lastUserMsg.length > 3) {
-    const cacheKey = `OCI_FastCache_${Buffer.from(lastUserMsg).toString('base64').substring(0, 32)}`;
-    const cachedResponse = db.getMemory(cacheKey);
-    if (cachedResponse) {
-      console.log(`[OCI Turbo Proxy] Sub-5ms In-Memory Cache Hit for: "${lastUserMsg.substring(0, 30)}..."`);
-      onProgress?.({ type: 'status', data: { message: "⚡ OCI In-Memory Fast-Cache Hit (Sub-5ms local speed)..." } });
-      onProgress?.({ type: 'chunk', data: { text: cachedResponse } });
-      return { text: cachedResponse, logs: [{ cacheHit: true, provider: "OCI-Local-FastCache" }] };
-    }
-
-    // Semantic Deduplication Check
-    const memories = db.getMemories();
-    const similar = memories.find(m => 
-      m.key.toLowerCase().includes(lastLower.substring(0, 20)) || 
-      (lastLower.length > 20 && m.value.toLowerCase().includes(lastLower.substring(0, 30)))
-    );
-    if (similar && similar.category !== 'Identity') {
-      console.log(`[OCI Deduplicator] Found similar previous response for query: "${lastUserMsg.substring(0, 30)}"`);
-      onProgress?.({ type: 'status', data: { message: "🧠 OCI Deduplicator: Similar context found, optimizing response..." } });
-      // We don't return immediately here but we could if we wanted absolute blocking
-    }
   }
 
   const providersToTry = [
     { name: provider, model: model },
     { name: "aurora-ulti-x", model: "aurora-ulti-x" },
-    { name: "gemini", model: "gemini-2.5-flash" },
-    { name: "gemini", model: "gemini-2.5-pro" },
+    { name: "gemini", model: "gemini-1.5-flash" },
+    { name: "gemini", model: "gemini-1.5-pro" },
     { name: "aurora-roc", model: "aurora-roc" },
     { name: "aurora-40", model: "aurora-40" },
     { name: "aurora-fun", model: "aurora-fun" },
@@ -1253,7 +1180,7 @@ export async function runOrchestrator
     { name: "roadqwen", model: "qwen3.7-max" },
     { name: "roadqwen", model: "qwen3-coder-plus" },
     { name: "cfai", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
-    { name: "openrouter", model: "google/gemini-2.5-flash" },
+    { name: "openrouter", model: "google/gemini-1.5-flash" },
     { name: "openrouter", model: "deepseek/deepseek-r1" },
     { name: "groq", model: "openai/gpt-oss-120b" },
     { name: "groq", model: "llama-3.3-70b-versatile" },
@@ -1304,11 +1231,6 @@ export async function runOrchestrator
         result = await callRoadQwen(messages, p.model, executionLogs, onProgress);
       } else if (p.name === "oci" || p.name === "ollama") {
         result = await callOciModel(messages, p.model, executionLogs, onProgress);
-      }
-
-      if (result && result.text && !result.text.startsWith("⚠️") && lastUserMsg && lastUserMsg.length > 3) {
-        const cacheKey = `OCI_FastCache_${Buffer.from(lastUserMsg).toString('base64').substring(0, 32)}`;
-        db.saveMemory(cacheKey, result.text, "OCI-FastCache");
       }
 
       return result;
