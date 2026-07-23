@@ -13,13 +13,24 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', 'react-is', 'recharts'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-is', 'recharts', 'react/jsx-runtime'],
+    include: ['react', 'react-dom', 'react-is', 'recharts', 'react/jsx-runtime', 'rollup'],
     esbuildOptions: {
       mainFields: ['browser', 'module', 'main'],
     },
   },
   ssr: {
     noExternal: ['recharts', 'react-is'],
+    external: [
+      'rollup',
+      '@rollup/rollup-linux-arm64-gnu',
+      '@rollup/rollup-linux-x64-gnu',
+      '@rollup/rollup-linux-arm-gnueabihf',
+      '@rollup/rollup-darwin-arm64',
+      '@rollup/rollup-darwin-x64',
+      '@rollup/rollup-win32-x64-msvc',
+      '@rollup/rollup-win32-arm64-msvc',
+      'fsevents'
+    ],
   },
   build: {
     commonjsOptions: {
@@ -27,7 +38,16 @@ export default defineConfig({
       transformMixedEsModules: true,
     },
     rollupOptions: {
-      external: [],
+      external: [
+        '@rollup/rollup-linux-arm64-gnu',
+        '@rollup/rollup-linux-x64-gnu',
+        '@rollup/rollup-linux-arm-gnueabihf',
+        '@rollup/rollup-darwin-arm64',
+        '@rollup/rollup-darwin-x64',
+        '@rollup/rollup-win32-x64-msvc',
+        '@rollup/rollup-win32-arm64-msvc',
+        'fsevents'
+      ],
     },
   },
   server: {
