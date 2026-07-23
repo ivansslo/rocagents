@@ -64,9 +64,20 @@ function ensureSshSetup() {
   }
 }
 
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const OWNER_EMAIL = "ivansuselo@gmail.com";
+
+// Ownership Middleware
+const authorizeOwner = (req: any, res: any, next: any) => {
+  const userEmail = req.headers["x-goog-authenticated-user-email"] || req.headers["x-user-email"];
+  if (userEmail && !userEmail.toString().includes(OWNER_EMAIL)) {
+    return res.status(403).json({ error: "Access denied: Unauthorized agent execution" });
+  }
+  next();
+};
+
 async function startServer() {
   const app = express();
-  const PORT = parseInt(process.env.PORT || "3000", 10);
   
   // Initialize scheduler
   initScheduler();
@@ -1838,7 +1849,7 @@ except Exception as e:
   });
 
   // Dedicated Terminal + Termbin Client Endpoints (fix request: terminal sendiri + logs rapi di chat via termbin)
-  app.post("/api/terminal/exec", async (req, res) => {
+  app.post("/api/terminal/exec", authorizeOwner, async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -2074,7 +2085,7 @@ app.delete("/api/chat-sessions", (req, res) => {
   }
 });
 
-app.post("/api/cognitive/optimize", (req, res) => {
+app.post("/api/cognitive/optimize", authorizeOwner, (req, res) => {
   try {
     db.optimizeMemories();
     res.json({ status: "success", message: "Cognitive deduplication complete" });

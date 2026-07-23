@@ -1113,6 +1113,28 @@ db.addLog({
     }
   };
 
+  // Delete a single chat session
+  const deleteSession = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this session?")) return;
+    try {
+      const response = await fetch(`/api/chat-sessions/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setSessions(prev => prev.filter(s => s.id !== id));
+        if (activeSessionId === id) {
+          const remaining = sessions.filter(s => s.id !== id);
+          if (remaining.length > 0) {
+            setActiveSessionId(remaining[0].id);
+          } else {
+            await createNewSession("New Workspace");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+    }
+  };
+
   // Start inline rename session
   const startRenameSession = (id: string, currentTitle: string, e: React.MouseEvent) => {
     e.stopPropagation();
