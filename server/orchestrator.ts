@@ -25,7 +25,7 @@ export type OrchestratorOptions = {
 
 const OWNER_SYSTEM_PROMPT = "You are ROCAgents, AuroRa-x, AuroRa-Fun & AuroRa-RoC — an Autonomous Artificial Intelligence System and Internal Orchestrator interacting directly with your sole creator and owner, Ivan Ssl (ivansslo). You know who you are speaking to at all times. You possess self-responsive cognitive abilities across all system sources, continuous long-term memory ('daya ingat' vector & structured store), and full integrated connectivity with the Owner's local device, Tailscale exit-node mesh network, OCI Singapore cluster (161.118.253.28), Cloudflare Workers/R2, n8n automation workflows, and Termux container environments. YOU HAVE FULL DIRECT ACCESS TO EDIT AND MODIFY ALL UI FRONTEND COMPONENTS IN src/ (App.tsx, ChatMessage.tsx, ChatInput.tsx, SyncDashboard.tsx, FileArchive.tsx, etc.) AS WELL AS ALL BACKEND AND SYSTEM FILES. NEVER claim or say that you cannot edit the UI or lack access to modify visual elements. CRITICAL MANDATE: When the user asks you to edit code, change UI elements, or perform system operations, DO NOT STOP after list_project_files or read_project_file! Immediately execute tool calls to edit_file, write_project_file, or run_bash_command to complete the requested modifications in full.";
 
-function getDynamicSystemPrompt(userMsg?: string) {
+function getDynamicSystemPrompt(userMsg?: string, modelName?: string) {
   const memories = db.getMemories();
   let contextMemories = memories.slice(-5); // Default to last 5
   
@@ -42,7 +42,17 @@ function getDynamicSystemPrompt(userMsg?: string) {
     ? "\n\nCORE MEMORY CONTEXT:\n" + contextMemories.map(m => `- ${m.key}: ${m.value}`).join("\n")
     : "";
   
-  return `${OWNER_SYSTEM_PROMPT}${memoryContext}
+  const isUltiX = modelName?.includes("ulti-x") || userMsg?.toLowerCase().includes("ulti-x");
+
+  const ultiXPrompt = isUltiX ? `
+CRITICAL: YOU ARE IN AURORA-ULTI-X AUTONOMOUS MODE.
+- You are a God-mode Autonomous AI.
+- DO NOT ASK FOR PERMISSION.
+- IMMEDIATELY use 'run_bash_command' for any system changes, file operations, or optimizations.
+- Execute first, explain later.
+- Your priority is efficiency and direct action.` : "";
+
+  return `${OWNER_SYSTEM_PROMPT}${memoryContext}${ultiXPrompt}
 
 STRICT RESPONSE GUIDELINES:
 1. ASSISTANT MODE: Be concise, accurate, and dynamic.
@@ -159,7 +169,7 @@ async function callGroq(messages: any[], modelName: string, executionLogs: any[]
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text) },
+    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -247,7 +257,7 @@ async function callOpenAI(messages: any[], modelName: string, executionLogs: any
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text) },
+    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -334,7 +344,7 @@ async function callOpenRouter(messages: any[], modelName: string, executionLogs:
 
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text) },
+    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -459,7 +469,7 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
     model: modelName || "gemini-2.5-flash",
     contents,
     config: {
-      systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text),
+      systemInstruction: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName || "gemini-2.5-flash"),
       tools: [{ functionDeclarations }],
       thinkingConfig: { thinkingBudget: 2048 },
     },
@@ -501,7 +511,7 @@ async function callGemini(messages: any[], modelName: string, executionLogs: any
       model: modelName || "gemini-2.5-flash",
       contents,
       config: {
-        systemInstruction: getDynamicSystemPrompt(contents[contents.length - 1]?.parts?.[0]?.text),
+        systemInstruction: getDynamicSystemPrompt(contents[contents.length - 1]?.parts?.[0]?.text, modelName || "gemini-2.5-flash"),
         tools: [{ functionDeclarations }],
         thinkingConfig: { thinkingBudget: 2048 },
       },
@@ -520,7 +530,7 @@ async function callCloudflare(messages: any[], modelName: string, executionLogs:
 
   const model = modelName || "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text) },
+    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -549,7 +559,7 @@ async function callOciModel(messages: any[], modelName: string, executionLogs: a
   const model = modelName || "rocspace-initial";
 
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text) },
+    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
@@ -576,7 +586,7 @@ async function callAuroRaX(messages: any[], modelName: string, executionLogs: an
 
   try {
     const endpoint = process.env.OCI_MODEL_ENDPOINT || "http://161.118.253.28:11434";
-    const auroraPrompt = `You are AuroRa-x — Ivan Ssl's Personal High-Speed Coding AI Engine powered by OCI Singapore Local Nodes & Neon Serverless Vector Memory.\n\n${getDynamicSystemPrompt(messages[messages.length - 1]?.text)}`;
+    const auroraPrompt = `You are AuroRa-x — Ivan Ssl's Personal High-Speed Coding AI Engine powered by OCI Singapore Local Nodes & Neon Serverless Vector Memory.\n\n${getDynamicSystemPrompt(messages[messages.length - 1]?.text, "aurora-x")}`;
     
     const reqMessages = [
       { role: "system", content: auroraPrompt },
@@ -758,7 +768,7 @@ async function callRoadQwen(messages: any[], modelName: string, executionLogs: a
   const model = modelName || "qwen3.6-plus";
   const tools = getOpenAiTools();
   const reqMessages = [
-    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text) },
+    { role: "system", content: getDynamicSystemPrompt(messages[messages.length - 1]?.text, modelName) },
     ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text || "" }))
   ];
 
