@@ -64,20 +64,9 @@ function ensureSshSetup() {
   }
 }
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
-const OWNER_EMAIL = "ivansuselo@gmail.com";
-
-// Ownership Middleware
-const authorizeOwner = (req: any, res: any, next: any) => {
-  const userEmail = req.headers["x-goog-authenticated-user-email"] || req.headers["x-user-email"];
-  if (userEmail && !userEmail.toString().includes(OWNER_EMAIL)) {
-    return res.status(403).json({ error: "Access denied: Unauthorized agent execution" });
-  }
-  next();
-};
-
 async function startServer() {
   const app = express();
+  const PORT = parseInt(process.env.PORT || "3000", 10);
   
   // Initialize scheduler
   initScheduler();
@@ -102,12 +91,32 @@ async function startServer() {
   // GET available models endpoint
   app.get("/api/models", (req, res) => {
     const models = [
-      { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", provider: "gemini", icon: "💎", active: true },
-      { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", provider: "gemini", icon: "💎", active: true },
-      { id: "gpt-4o", name: "GPT-4o", provider: "openai", icon: "🟢", active: true },
-      { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai", icon: "⚡", active: true }
+      { id: "aurora-ulti-x", name: "AuroRa-Ulti.X Ultimate Self-Upgrading (Gemini 2.5 Flash Equivalent)", provider: "aurora-ulti-x", icon: "🚀", active: true },
+      { id: "aurora-roc", name: "AuroRa-RoC System Master (Neon Serverless + Harness Vault)", provider: "aurora-roc", icon: "🐘", active: true },
+      { id: "aurora-x", name: "AuroRa-x Personal Coding AI (OCI + Neon Vector)", provider: "aurora", icon: "🌌", active: true },
+      { id: "aurora-fun", name: "AuroRa-Fun Personal Project AI (Backboard.io + OCI)", provider: "aurora-fun", icon: "✨", active: true },
+      { id: "aurora-40", name: "AuroRa-Forty Cognitive Memory Engine (Honcho API)", provider: "aurora-40", icon: "🧠", active: true },
+      { id: "openai/gpt-oss-120b", name: "Groq GPT-OSS 120B (Large Scale)", provider: "groq", icon: "🔥", active: true },
+      { id: "llama-3.3-70b-versatile", name: "Groq Llama 3.3 70B (Flagship)", provider: "groq", icon: "⚡", active: true },
+      { id: "groq/compound", name: "Groq Compound (Reasoning)", provider: "groq", icon: "🧠", active: true },
+      { id: "gpt-4o", name: "OpenAI GPT-4o Flagship (Service Acct)", provider: "openai", icon: "🟢", active: true },
+      { id: "gpt-4o-mini", name: "OpenAI GPT-4o Mini (Fast)", provider: "openai", icon: "⚡", active: true },
+      { id: "o3-mini", name: "OpenAI o3-mini (Reasoning)", provider: "openai", icon: "🧠", active: true },
+      { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", name: "Cloudflare Workers AI", provider: "cfai", icon: "☁️", active: true },
+      { id: "rocspace-initial", name: "OCI Private Model", provider: "oci", icon: "🏠", active: true },
+      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini", icon: "💎", active: true },
+      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "gemini", icon: "💎", active: true },
+      { id: "google/gemini-2.5-flash", name: "OpenRouter Gemini 2.5", provider: "openrouter", icon: "🌐", active: true },
+      { id: "deepseek/deepseek-r1", name: "OpenRouter DeepSeek R1", provider: "openrouter", icon: "🌐", active: true },
+      { id: "jules-agent", name: "Google Jules AI Autonomous Coding Agent", provider: "jules", icon: "🛠️", active: true },
+      { id: "qwen3.6-plus", name: "RoadQwen 3.6 Plus Flagship (Qwen Cloud)", provider: "roadqwen", icon: "🐉", active: true },
+      { id: "qwen3.7-max", name: "RoadQwen 3.7 Max Reasoning (Qwen Cloud)", provider: "roadqwen", icon: "🐉", active: true },
+      { id: "qwen3-coder-plus", name: "RoadQwen 3 Coder Plus (Qwen Cloud)", provider: "roadqwen", icon: "🐉", active: true }
     ];
-    const activeProvider = "gemini";
+    const activeProvider = process.env.PROVIDER || (
+      (process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY) ? "gemini" :
+      (process.env.GROQ_KEY || process.env.GROQ_API_KEY) ? "groq" : "gemini"
+    );
     res.json({
       active_provider: activeProvider,
       models
@@ -115,7 +124,7 @@ async function startServer() {
   });
 
   // Chat endpoint
-  app.post("/api/chat", authorizeOwner, async (req, res) => {
+  app.post("/api/chat", async (req, res) => {
     try {
       const { messages, model, provider } = req.body;
 
@@ -133,7 +142,7 @@ async function startServer() {
   });
 
   // Real-time Event Streaming Chat Endpoint (SSE)
-  app.post("/api/chat/stream", authorizeOwner, async (req, res) => {
+  app.post("/api/chat/stream", async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -247,7 +256,7 @@ async function startServer() {
   });
 
   // Tailscale Auto Exec Endpoint
-  app.post("/api/tailscale/exec", authorizeOwner, async (req, res) => {
+  app.post("/api/tailscale/exec", async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -950,7 +959,7 @@ except Exception as e:
     }
   });
 
-  app.post("/api/github/pull", authorizeOwner, async (req, res) => {
+  app.post("/api/github/pull", async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -1045,7 +1054,7 @@ except Exception as e:
     }
   });
 
-  app.post("/api/github/push", authorizeOwner, async (req, res) => {
+  app.post("/api/github/push", async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -1829,30 +1838,7 @@ except Exception as e:
   });
 
   // Dedicated Terminal + Termbin Client Endpoints (fix request: terminal sendiri + logs rapi di chat via termbin)
-  app.post("/api/termbin/upload", authorizeOwner, async (req, res) => {
-    try {
-      const { exec } = await import("child_process");
-      const { promisify } = await import("util");
-      const execAsync = promisify(exec);
-      const content = req.body.content || "";
-      if (!content) return res.status(400).json({ error: "Content is empty" });
-
-      // Create a temporary file to avoid command injection via large strings in echo
-      const fs = await import("fs/promises");
-      const tempPath = path.join(process.cwd(), `temp_termbin_${Date.now()}.txt`);
-      await fs.writeFile(tempPath, content);
-      
-      const { stdout } = await execAsync(`cat ${tempPath} | nc termbin.com 9999`);
-      await fs.rm(tempPath);
-      
-      const termbinUrl = stdout.trim();
-      res.json({ status: "success", url: termbinUrl });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/terminal/exec", authorizeOwner, async (req, res) => {
+  app.post("/api/terminal/exec", async (req, res) => {
     try {
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
@@ -2051,53 +2037,7 @@ except Exception as e:
     app.use(vite.middlewares);
   }
 
-  // Session deletion endpoints
-app.delete("/api/sessions/all", authorizeOwner, async (req, res) => {
-  try {
-    const fs = await import("fs/promises");
-    const sessionsDir = path.join(process.cwd(), "sessions");
-    const dirs = await fs.readdir(sessionsDir);
-    for (const dir of dirs) {
-      if (dir.startsWith("session_")) {
-        await fs.rm(path.join(sessionsDir, dir), { recursive: true, force: true });
-      }
-    }
-    res.json({ status: "success", message: "All sessions purged" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/sessions/:id", async (req, res) => {
-  try {
-    const fs = await import("fs/promises");
-    const sessionPath = path.join(process.cwd(), "sessions", req.params.id);
-    await fs.rm(sessionPath, { recursive: true, force: true });
-    res.json({ status: "success", message: `Session ${req.params.id} deleted` });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/chat-sessions", authorizeOwner, (req, res) => {
-  try {
-    db.clearChatSessions();
-    res.json({ status: "success", message: "All chat sessions purged" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/cognitive/optimize", authorizeOwner, (req, res) => {
-  try {
-    db.optimizeMemories();
-    res.json({ status: "success", message: "Cognitive deduplication complete" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 ROCAgents Server running on http://0.0.0.0:${PORT}`);
   });
 }

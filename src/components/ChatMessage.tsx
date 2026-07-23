@@ -564,6 +564,281 @@ function ExecutionLogsGroup({ logs }: { logs: any[] }) {
   );
 }
 
+// Exclusive Array Function Reasoning + Turbo Proxy Running Indicator
+function KvProgressMeter({ statusMessage }: { statusMessage?: string }) {
+  const [pct, setPct] = useState(15);
+  const [activeFn, setActiveFn] = useState(0);
+  const functions = [
+    { name: "Thinking", icon: "🧠", color: "text-indigo-400", bg: "bg-indigo-500/15 border-indigo-500/30 text-indigo-300", desc: "Internal chain-of-thought & plan" },
+    { name: "Observation", icon: "👁️", color: "text-cyan-400", bg: "bg-cyan-500/15 border-cyan-500/30 text-cyan-300", desc: "Reading files, logs, .env & keys" },
+    { name: "Grounding", icon: "⚓", color: "text-amber-400", bg: "bg-amber-500/15 border-amber-500/30 text-amber-300", desc: "Verifying tools & system status" },
+    { name: "Hacking", icon: "💻", color: "text-emerald-400", bg: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300", desc: "Executing tools & applying fixes" },
+    { name: "Viewing", icon: "🖥️", color: "text-purple-400", bg: "bg-purple-500/15 border-purple-500/30 text-purple-300", desc: "Rendering final output response" },
+  ];
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setPct(prev => (prev >= 98 ? 98 : prev + Math.floor(Math.random() * 12) + 6));
+    }, 280);
+    const fnInterval = setInterval(() => {
+      setActiveFn(prev => (prev + 1) % functions.length);
+    }, 900);
+    return () => { clearInterval(interval); clearInterval(fnInterval); };
+  }, []);
+
+  const current = functions[activeFn];
+
+  return (
+    <div className="mt-2.5 p-3.5 bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-2xl space-y-3 font-mono text-xs select-none shadow-xl text-left transition-all">
+      {/* Header & Integrated Progress Bar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="font-bold text-slate-100 tracking-wider text-[11px] truncate">TURBO PROXY</span>
+          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            FASTCACHE 0ms
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="w-20 bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+            <div className="bg-emerald-400 h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[10px] font-bold text-emerald-400 min-w-[28px] text-right">{pct}%</span>
+        </div>
+      </div>
+
+      {/* Simplified 5-Step Reasoning Pipeline */}
+      <div className="grid grid-cols-5 gap-1.5 py-1">
+        {functions.map((fn, idx) => {
+          const isActive = idx === activeFn;
+          return (
+            <div
+              key={fn.name}
+              className={`px-2 py-1.5 rounded-lg border text-[10px] transition-all flex items-center justify-center gap-1 cursor-default ${
+                isActive
+                  ? `${fn.bg} font-bold shadow-sm scale-[1.02]`
+                  : 'bg-slate-900/40 border-slate-800/60 text-slate-500 opacity-60'
+              }`}
+            >
+              <span className="text-[11px]">{fn.icon}</span>
+              <span className="hidden sm:inline text-[9px] tracking-tight">{fn.name}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Active Step Details */}
+      <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-all ${current.bg}`}>
+        <span className="text-sm">{current.icon}</span>
+        <div className="flex-1 min-w-0 text-[10px]">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`font-bold uppercase tracking-wider text-[10px] ${current.color}`}>{current.name}</span>
+            <span className="text-slate-500 text-[9px]">[{activeFn + 1}/5]</span>
+            <span className="text-slate-300 font-medium truncate">
+              {statusMessage || current.desc}
+            </span>
+          </div>
+        </div>
+        <Terminal size={13} className={`animate-spin flex-shrink-0 ${current.color}`} />
+      </div>
+
+      {/* Minimal Footer */}
+      <div className="flex items-center justify-between text-[9px] text-slate-500 pt-0.5 px-0.5">
+        <span>TermOnePlus • Terminal logs di chat</span>
+        <span>Port 8022 ubuntu</span>
+      </div>
+    </div>
+  );
+}
+
+// Interactive Clarification Option Poll Card matching Video 00:25 - 00:39
+function ClarificationPollCard({ text }: { text?: string }) {
+  const [submitted, setSubmitted] = useState(true);
+  const [selectedOption, setSelectedOption] = useState(0);
+  const [customText, setCustomText] = useState('');
+
+  const options = [
+    {
+      title: "Review Bug/Performa Loop (Coding)",
+      desc: "Membahas review teknis pada kode perulangan (mencari bug seperti infinite loop, off-by-one, atau masalah performa)."
+    },
+    {
+      title: "Feedback Loop (Bisnis & Produk)",
+      desc: "Membahas konsep bisnis atau manajemen (seperti siklus feedback dari pengguna untuk pengembangan produk)."
+    },
+    {
+      title: "Proses Review Kode (Workflow Dev)",
+      desc: "Membahas siklus proses review kode tim developer sebelum merge (Pull Request, revisi, approval)."
+    }
+  ];
+
+  if (submitted) {
+    return (
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 my-3 text-slate-200 text-xs shadow-lg space-y-2 font-sans animate-fade-in select-none">
+        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Summary</div>
+        <div className="text-slate-300 font-medium">
+          Apa yang Anda maksud dengan &quot;review loop&quot;? Silakan pilih opsi yang paling sesuai:
+        </div>
+        <div className="flex items-center gap-2 text-emerald-400 font-semibold pt-1 bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-900/40">
+          <Check size={14} className="text-emerald-400 flex-shrink-0" />
+          <span>{options[selectedOption].title}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 my-3 text-slate-200 text-xs shadow-xl space-y-3 font-sans animate-fade-in">
+      <div className="flex items-start justify-between gap-2">
+        <div className="font-semibold text-slate-100 leading-snug text-xs sm:text-sm">
+          Apa yang Anda maksud dengan &quot;review loop&quot;? Silakan pilih opsi yang paling sesuai:
+        </div>
+        <button
+          type="button"
+          onClick={() => setSubmitted(true)}
+          className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold cursor-pointer flex-shrink-0"
+        >
+          Skip &rarr;
+        </button>
+      </div>
+
+      <div className="space-y-2 pt-1">
+        {options.map((opt, idx) => {
+          const isSelected = selectedOption === idx;
+          return (
+            <div
+              key={idx}
+              onClick={() => setSelectedOption(idx)}
+              className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                isSelected
+                  ? 'bg-indigo-950/50 border-indigo-500/80 text-white shadow-md'
+                  : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300'
+              }`}
+            >
+              <div className="mt-0.5 flex-shrink-0">
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                  isSelected ? 'border-indigo-400 bg-indigo-600' : 'border-slate-600'
+                }`}>
+                  {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+              </div>
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="font-bold text-xs text-slate-100">{opt.title}</div>
+                <div className="text-[11px] text-slate-400 leading-relaxed">{opt.desc}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          type="text"
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          placeholder="✎ Revise options or write your own..."
+          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+        />
+        <button
+          type="button"
+          onClick={() => setSubmitted(true)}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-colors cursor-pointer flex-shrink-0"
+        >
+          Submit
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Module WebSearching 4-Stage Cognitive Card
+function WebSearchingModuleCard() {
+  const [activeStage, setActiveStage] = useState<'all' | 'analisa' | 'pemahaman' | 'kesimpulan' | 'penerapan'>('all');
+
+  return (
+    <div className="bg-slate-900 border border-indigo-900/60 rounded-2xl p-4 my-3 text-slate-200 text-xs shadow-xl space-y-3 font-sans animate-fade-in border-l-4 border-l-cyan-500">
+      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-800/80 text-cyan-400">
+            <Globe size={16} className="animate-spin-slow" />
+          </div>
+          <div>
+            <div className="font-bold text-slate-100 text-xs sm:text-sm flex items-center gap-2">
+              <span>Peningkatan Module WebSearching</span>
+              <span className="text-[9px] bg-cyan-500/20 text-cyan-300 font-mono font-bold px-1.5 py-0.5 rounded border border-cyan-500/30">
+                4-TAHAP
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">Multi-engine live search &amp; non-monotonous AI reasoning framework</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stage Navigation Pills */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        <button
+          type="button"
+          onClick={() => setActiveStage('all')}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${
+            activeStage === 'all'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+          }`}
+        >
+          🌐 Semua Tahap
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveStage('analisa')}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${
+            activeStage === 'analisa'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+          }`}
+        >
+          🔍 1. Analisa
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveStage('pemahaman')}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${
+            activeStage === 'pemahaman'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+          }`}
+        >
+          💡 2. Pemahaman
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveStage('kesimpulan')}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${
+            activeStage === 'kesimpulan'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+          }`}
+        >
+          🎯 3. Kesimpulan
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveStage('penerapan')}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all ${
+            activeStage === 'penerapan'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+          }`}
+        >
+          🚀 4. Penerapan
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
@@ -644,7 +919,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </div>
           )}
 
-          {/* Render WebSearchingModuleCard for websearching queries - REMOVED */}
+          {/* Render ClarificationPollCard for review loop queries */}
+          {!isUser && message.text && (message.text.toLowerCase().includes("review loop") || message.text.toLowerCase().includes("review_loop")) && (
+            <ClarificationPollCard text={message.text} />
+          )}
+
+          {/* Render WebSearchingModuleCard for websearching queries */}
+          {!isUser && message.text && (message.text.toLowerCase().includes("websearching") || message.text.toLowerCase().includes("analisa kognitif") || message.text.toLowerCase().includes("4-tahap")) && (
+            <WebSearchingModuleCard />
+          )}
 
           {/* High-Contrast Markdown Text Body */}
           {message.text && (
@@ -673,12 +956,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <ExecutionLogsGroup logs={message.logs} />
           )}
 
-          {/* Loading Indicator */}
+          {/* KV Progress Bar & Live Execution Loading Indicator matching Screenshot 1:1 */}
           {message.isTyping && (
-            <div className="flex items-center gap-2 text-indigo-400 text-xs animate-pulse p-2">
-              <RefreshCw size={14} className="animate-spin" />
-              <span>Thinking...</span>
-            </div>
+            <KvProgressMeter statusMessage={message.statusMessage} />
           )}
         </div>
       </div>

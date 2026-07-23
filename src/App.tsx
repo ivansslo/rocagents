@@ -3,6 +3,9 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LineChart, Line
 import { Message, FilePayload, ChatSession } from './types';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
+import { SyncDashboard } from './components/SyncDashboard';
+import { UpgradePanel } from './components/UpgradePanel';
+import { FileArchive } from './components/FileArchive';
 import { ExecutionHistoryModal } from './components/ExecutionHistoryModal';
 import { LiveTerminal } from './components/LiveTerminal';
 import { 
@@ -16,7 +19,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [terminalOpen, setTerminalOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'chat' | 'settings'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'files' | 'sync' | 'upgrade' | 'settings'>('chat');
   const [tier, setTier] = useState<string>(() => localStorage.getItem('ROC_TIER') || 'FREE');
   const [theme, setTheme] = useState<'dark' | 'light' | 'high-contrast'>(() => {
     return (localStorage.getItem('ROC_THEME') as any) || 'dark';
@@ -1005,7 +1008,7 @@ db.addLog({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const selectTab = (tab: 'chat' | 'settings') => {
+  const selectTab = (tab: 'chat' | 'files' | 'sync' | 'upgrade' | 'settings') => {
     setActiveTab(tab);
     if (window.innerWidth < 768) {
       setSidebarOpen(false);
@@ -1093,20 +1096,6 @@ db.addLog({
       }
     } catch (err) {
       console.error("Failed to delete session:", err);
-    }
-  };
-
-  // Delete ALL chat sessions
-  const deleteAllSessions = async () => {
-    if (!confirm("Are you sure you want to purge ALL chat sessions? This cannot be undone.")) return;
-    try {
-      const response = await fetch('/api/chat-sessions', { method: 'DELETE' });
-      if (response.ok) {
-        setSessions([]);
-        await createNewSession("New Workspace");
-      }
-    } catch (err) {
-      console.error("Failed to purge sessions:", err);
     }
   };
 
@@ -1317,16 +1306,7 @@ db.addLog({
         {/* Chat Sessions List (History) matching screenshot design */}
         <div className="flex-1 overflow-y-auto mb-4 pr-1 space-y-3 min-h-0">
           <div className="space-y-1">
-            <div className="flex items-center justify-between px-2 mb-1">
-              <span className="text-[11px] font-medium text-slate-500 block">Today</span>
-              <button 
-                onClick={deleteAllSessions}
-                className="text-[10px] text-red-500/60 hover:text-red-400 font-mono font-bold px-1.5 py-0.5 rounded border border-red-500/20 hover:bg-red-500/10 transition-all"
-                title="Purge All Sessions"
-              >
-                PURGE ALL
-              </button>
-            </div>
+            <span className="text-[11px] font-medium text-slate-500 px-2 block mb-1">Today</span>
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               const isRenaming = renamingSessionId === session.id;
@@ -1410,6 +1390,18 @@ db.addLog({
 
                       <button 
                         onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuSessionId(null);
+                          selectTab('files');
+                        }}
+                        className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left hover:bg-slate-800 text-slate-200 rounded-lg cursor-pointer"
+                      >
+                        <HardDrive size={13} className="text-indigo-400" />
+                        <span>Archive</span>
+                      </button>
+
+                      <button 
+                        onClick={(e) => {
                           deleteSession(session.id, e);
                           setActiveMenuSessionId(null);
                         }}
@@ -1435,6 +1427,15 @@ db.addLog({
                 {formatTime(minimizeTimer)}
               </span>
             )}
+          </button>
+          <button onClick={() => selectTab('files')} className={`flex items-center gap-3 w-full p-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${activeTab === 'files' ? 'bg-theme-btn-active text-theme-btn-active-text border border-theme-border/20' : 'text-theme-text-secondary hover:bg-theme-btn-hover'}`}>
+            <HardDrive size={14} /> File Archive
+          </button>
+          <button onClick={() => selectTab('sync')} className={`flex items-center gap-3 w-full p-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${activeTab === 'sync' ? 'bg-theme-btn-active text-theme-btn-active-text border border-theme-border/20' : 'text-theme-text-secondary hover:bg-theme-btn-hover'}`}>
+            <RefreshCw size={14} /> Ecosystem Sync
+          </button>
+          <button onClick={() => selectTab('upgrade')} className={`flex items-center gap-3 w-full p-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${activeTab === 'upgrade' ? 'bg-indigo-600/10 text-indigo-300 border border-indigo-500/20' : 'text-theme-text-secondary hover:bg-theme-btn-hover'}`}>
+            <Sparkles size={14} /> Upgrade Plan
           </button>
           <button onClick={() => selectTab('settings')} className={`flex items-center gap-3 w-full p-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer ${activeTab === 'settings' ? 'bg-theme-btn-active text-theme-btn-active-text' : 'text-theme-text-muted hover:bg-theme-btn-hover'}`}>
             <Settings size={14} /> Settings
@@ -1469,6 +1470,9 @@ db.addLog({
               <Layout size={14} className="text-indigo-500" />
               <span className="hidden sm:inline">
                 {activeTab === 'chat' && `${activeSession?.title || "Project Workspace"}`}
+                {activeTab === 'files' && "Workspace File Repository"}
+                {activeTab === 'sync' && "Ecosystem Application Sync"}
+                {activeTab === 'upgrade' && "Robotic Upgrade Gate"}
                 {activeTab === 'settings' && "Workspace Preferences"}
               </span>
             </h2>
@@ -1491,6 +1495,42 @@ db.addLog({
             </div>
 
             {/* Quick Access Icons for Navigation */}
+            <button
+              onClick={() => selectTab('chat')}
+              className={`p-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
+                activeTab === 'chat'
+                  ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300 font-bold'
+                  : 'bg-theme-btn-active border-theme-border text-theme-text-secondary hover:bg-theme-btn-hover'
+              }`}
+              title="Workspace Chat"
+            >
+              <MessageSquare size={15} />
+            </button>
+
+            <button
+              onClick={() => selectTab('files')}
+              className={`p-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
+                activeTab === 'files'
+                  ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300 font-bold'
+                  : 'bg-theme-btn-active border-theme-border text-theme-text-secondary hover:bg-theme-btn-hover'
+              }`}
+              title="File Archive"
+            >
+              <HardDrive size={15} />
+            </button>
+
+            <button
+              onClick={() => selectTab('sync')}
+              className={`p-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
+                activeTab === 'sync'
+                  ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300 font-bold'
+                  : 'bg-theme-btn-active border-theme-border text-theme-text-secondary hover:bg-theme-btn-hover'
+              }`}
+              title="Ecosystem Sync"
+            >
+              <RefreshCw size={15} />
+            </button>
+
             <button
               onClick={() => setTerminalOpen(!terminalOpen)}
               className={`p-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
@@ -1726,6 +1766,10 @@ db.addLog({
           </div>
         )}
 
+        {activeTab === 'files' && <FileArchive activeSessionId={activeSessionId} />}
+        {activeTab === 'sync' && <SyncDashboard userEmail={userEmail} userGithub={userGithub} />}
+        {activeTab === 'upgrade' && <UpgradePanel currentTier={tier} onUpgradeSuccess={handleUpgradeSuccess} />}
+        
         {activeTab === 'settings' && (
           <div className="p-6 max-w-4xl space-y-8 overflow-y-auto">
             {/* User Profile & Security Verification */}
