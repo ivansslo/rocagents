@@ -1,0 +1,63 @@
+{
+  "id": "wa2uEnSIowqSrHoY",
+  "meta": {
+    "instanceId": "cca06617664f52c5a019ea575691fdbce675dd95dc0452af5f13dbe76d615b69"
+  },
+  "name": "Intelligent Web Query and Semantic Re-Ranking Flow",
+  "tags": [],
+  "nodes": [
+    {
+      "id": "8e7dc5cb-6822-4ef6-9e5a-2b350a1526bf",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [ -640, -620 ],
+      "parameters": {
+        "color": 5,
+        "width": 1172,
+        "height": 970,
+        "content": "\n## Step 1. Set Up a Free Brave Web Search Query API Key\n\nTo attain the free web search API tier from Brave, follow these steps:\n\n1. Visit api.search.brave.com\n2. Create an account\n3. Subscribe to the free plan (no charge)\n4. Navigate to the API Keys section\n5. Generate an API key. For the subscription type, choose \"Free\".\n6. Go to the \"Query\" Nodes and change the \"X-Subscription-Token\" value to your API Key.\n"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "6f18ebbd-83db-4900-bc2e-0a9f23d6e8c8",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [ -1340, -240 ],
+      "webhookId": "962f1468-c80f-4c0c-8555-a0acf648ede4",
+      "parameters": {
+        "path": "962f1468-c80f-4c0c-8555-a0acf648ede4",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "a1ca671d-0b0c-4717-9def-93fdb965de8d",
+      "name": "Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [ -240, -240 ],
+      "parameters": {
+        "url": "https://api.search.brave.com/res/v1/web/search",
+        "options": {},
+        "sendQuery": true,
+        "sendHeaders": true,
+        "queryParameters": {
+          "parameters": [ { "name": "q", "value": "={{ $json.output.final_search_query }}" } ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/json" },
+            { "name": "Accept-Encoding", "value": "gzip" },
+            { "name": "X-Subscription-Token", "value": "<Insert Your API Key Here>" }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    }
+  ],
+  "connections": {
+    "Query": { "main": [ [ { "node": "Query-1 Combined", "type": "main", "index": 0 } ] ] },
+    "Webhook": { "main": [ [ { "node": "Date & Time", "type": "main", "index": 0 } ] ] }
+  }
+}

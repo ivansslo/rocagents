@@ -76,6 +76,19 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   // N8N State
   const [n8nWorkflows, setN8nWorkflows] = useState<any[]>([]);
   const [n8nLoadingWorkflows, setN8nLoadingWorkflows] = useState(false);
+  const [n8nTemplate, setN8nTemplate] = useState<any>(null);
+
+  const fetchN8nTemplate = async () => {
+    try {
+      const res = await fetch('/src/templates/n8n_web_query.json');
+      if (res.ok) {
+        const data = await res.json();
+        setN8nTemplate(data);
+      }
+    } catch (err) {
+      console.error('Failed to load n8n template:', err);
+    }
+  };
 
   const fetchN8nWorkflows = async () => {
     setN8nLoadingWorkflows(true);
@@ -381,6 +394,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
     fetchOciShellStatus();
     fetchSnowflakeStatus();
     fetchN8nWorkflows();
+    fetchN8nTemplate();
   }, []);
 
   const handleSync = async (id: string) => {
@@ -2192,6 +2206,21 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* N8N Template Library */}
+          <div className="bg-theme-bg/60 border border-theme-border p-4 rounded-xl space-y-3">
+            <div className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={14} className="text-purple-500" /> N8N Template Library
+            </div>
+            {n8nTemplate ? (
+              <div className="bg-theme-input p-3 rounded-lg border border-theme-border flex items-center justify-between">
+                <span className="text-xs font-semibold text-theme-text-primary truncate">{n8nTemplate.name}</span>
+                <button className="text-xs font-bold text-purple-400 hover:text-purple-300">View</button>
+              </div>
+            ) : (
+              <p className="text-xs text-theme-text-muted italic">Template loading...</p>
             )}
           </div>
 
