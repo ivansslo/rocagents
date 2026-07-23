@@ -145,11 +145,11 @@ _default_model_for() {
   case "$1" in
     openai|oai)   echo "gpt-4o" ;;
     openrouter|or) echo "openai/gpt-4o" ;;
-    gemini)       echo "gemini-2.5-flash" ;;
+    gemini)       echo "gemini-1.5-flash" ;;
     groq)         echo "llama-3.3-70b-versatile" ;;
     oci|ollama)   echo "rocspace-initial" ;;
     gateway)      echo "llama-3.3-70b-versatile" ;;
-    ais|aisdev|newcr|ais-dev) echo "gemini-2.5-flash" ;;
+    ais|aisdev|newcr|ais-dev) echo "gemini-1.5-flash" ;;
     cf|cfai)      echo "@cf/meta/llama-3.3-70b-instruct-fp8-fast" ;;
     best|auto|all) echo "auto" ;;
     *)            echo "llama-3.3-70b-versatile" ;;
@@ -2299,8 +2299,8 @@ cmd_models() {
 
   echo ""
   echo -e "  ${G}🧠 AIS-DEV / Gemini via AIS (High Thinking + Fast):${N}"
-  echo -e "    gemini-2.5-flash          (recommended for coding + thinking)"
-  echo -e "    gemini-2.5-pro"
+  echo -e "    gemini-1.5-flash          (recommended for coding + thinking)"
+  echo -e "    gemini-1.5-pro"
 
   echo -e "  ${M}🧠 OpenAI (Direct):${N}"
   for m in "gpt-5" "gpt-5-mini" "gpt-4.1-mini" "gpt-4.1-nano" "gpt-4o" "gpt-4o-mini" "o3-pro" "o3" "o3-mini" "o4-mini" "codex-mini"; do
@@ -2317,14 +2317,14 @@ cmd_models() {
 
   echo ""
   echo -e "  ${B}🌐 OpenRouter:${N}"
-  for m in "google/gemini-2.5-flash" "google/gemini-2.5-pro-preview" "openai/gpt-4o" "qwen/qwen3-235b-a22b" "deepseek/deepseek-r1"; do
+  for m in "google/gemini-1.5-flash" "google/gemini-1.5-pro-preview" "openai/gpt-4o" "qwen/qwen3-235b-a22b" "deepseek/deepseek-r1"; do
     printf "    %-45s" "$m"
     [ -n "$OR_KEY" ] && echo -e "${G}available${N}" || echo -e "${D}(no key)${N}"
   done
 
   echo ""
   echo -e "  ${G}💎 Gemini (Direct):${N}"
-  for m in "gemini-3-pro-preview" "gemini-2.5-flash" "gemini-2.5-pro" "gemini-2.0-flash"; do
+  for m in "gemini-3-pro-preview" "gemini-1.5-flash" "gemini-1.5-pro" "gemini-1.5-flash"; do
     printf "    %-45s" "$m"
     [ -n "$GEMINI_KEY" ] && echo -e "${G}available${N}" || echo -e "${D}(no key)${N}"
   done
@@ -3105,7 +3105,7 @@ cmd_studio() {
       echo -e "${BOLD}🎨 AI Studio Chat${N} — Gemini"
       echo -e "  ${D}Type 'exit' to quit, '/model <name>' to switch${N}\n"
 
-      local model="gemini-2.5-flash"
+      local model="gemini-1.5-flash"
       local messages="[]"
 
       while true; do
@@ -3211,7 +3211,7 @@ print(json.dumps(msgs))
             local question="${input#/ask }"
             if [ -n "$question" ]; then
               echo ""
-              PROVIDER=gemini MODEL=gemini-2.5-flash cmd_ask "$question"
+              PROVIDER=gemini MODEL=gemini-1.5-flash cmd_ask "$question"
               echo ""
             else
               warn "Usage: /ask <question>"
@@ -3250,7 +3250,7 @@ print(json.dumps(msgs))
           *)
             # Treat as a question to AI
             echo ""
-            PROVIDER=gemini MODEL=gemini-2.5-flash cmd_ask "$input"
+            PROVIDER=gemini MODEL=gemini-1.5-flash cmd_ask "$input"
             echo ""
             ;;
         esac
@@ -4422,7 +4422,7 @@ cmd_import_to_aistudio() {
     "ais_dev": "$AIS_DEV",
     "gateway": "$GATEWAY"
   },
-  "recommended_model": "gemini-2.5-flash (fast + high thinking)"
+  "recommended_model": "gemini-1.5-flash (fast + high thinking)"
 }
 JSON
 

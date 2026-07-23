@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   RefreshCw, Server, CheckCircle2, AlertCircle, FileCode, Radio, 
   Database, Terminal, Brain, Cpu, ShieldCheck, Lock, Sparkles, 
-  Plus, Trash2, Search, Activity, HardDrive, X, Workflow, Play 
+  Plus, Trash2, Search, Activity, HardDrive, X 
 } from 'lucide-react';
 import { AppSyncInfo } from '../types';
 import { safeFetchJson } from '../lib/api';
@@ -72,66 +72,6 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
 
   // GitHub OAuth App State
   const [githubAppUser, setGithubAppUser] = useState<any>(null);
-
-  // N8N State
-  const [n8nWorkflows, setN8nWorkflows] = useState<any[]>([]);
-  const [n8nLoadingWorkflows, setN8nLoadingWorkflows] = useState(false);
-  const [n8nTemplate, setN8nTemplate] = useState<any>(null);
-  const [executingWorkflowId, setExecutingWorkflowId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-
-  const fetchN8nTemplate = async () => {
-    try {
-      const res = await fetch('/src/templates/n8n_web_query.json');
-      if (res.ok) {
-        const data = await res.json();
-        setN8nTemplate(data);
-      }
-    } catch (err) {
-      console.error('Failed to load n8n template:', err);
-    }
-  };
-
-  const fetchN8nWorkflows = async () => {
-    setN8nLoadingWorkflows(true);
-    try {
-      const res = await fetch('/api/n8n/workflows');
-      if (res.ok) {
-        const data = await res.json();
-        setN8nWorkflows(data.data || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch N8N workflows:', err);
-    } finally {
-      setN8nLoadingWorkflows(false);
-    }
-  };
-
-  const executeN8nWorkflow = async (workflowId: string) => {
-    setExecutingWorkflowId(workflowId);
-    try {
-      const res = await fetch('/api/n8n/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflowId })
-      });
-      if (!res.ok) {
-        throw new Error('Failed to execute workflow');
-      }
-      showToast('Workflow execution triggered successfully!', 'success');
-    } catch (err) {
-      console.error('Error executing workflow:', err);
-      showToast('Error executing workflow.', 'error');
-    } finally {
-      setExecutingWorkflowId(null);
-    }
-  };
 
   // Backboard.io State
   const [backboardInfo, setBackboardInfo] = useState<any>(null);
@@ -393,34 +333,12 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
       const response = await fetch('/api/memories');
       if (response.ok) {
         const data = await response.json();
-        // UI Side Deduplication
-        const unique = data.reduce((acc: any[], current: any) => {
-          const x = acc.find(item => item.key === current.key);
-          if (!x) {
-            return acc.concat([current]);
-          } else {
-            return acc;
-          }
-        }, []);
-        setMemories(unique);
+        setMemories(data);
       }
     } catch (err) {
       console.error("Failed to fetch memories:", err);
     } finally {
       setMemLoading(false);
-    }
-  };
-
-  const handleCleanupDuplicates = async () => {
-    try {
-      const res = await fetch('/api/memories/cleanup', { method: 'DELETE' });
-      if (res.ok) {
-        const data = await res.json();
-        showToast(data.removedCount ? `Removed ${data.removedCount} duplicates.` : 'No duplicates found.', 'success');
-        fetchMemories();
-      }
-    } catch (err) {
-      showToast('Cleanup failed.', 'error');
     }
   };
 
@@ -443,8 +361,6 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
     fetchApertureStatus();
     fetchOciShellStatus();
     fetchSnowflakeStatus();
-    fetchN8nWorkflows();
-    fetchN8nTemplate();
   }, []);
 
   const handleSync = async (id: string) => {
@@ -486,44 +402,21 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
   // Add Memory Entry
   const handleAddMemory = async (e: React.FormEvent) => {
     e.preventDefault();
-    const key = newMemKey.trim();
-    if (!key || !newMemVal.trim()) return;
-
-    if (memories.some(m => m.key === key)) {
-      showToast('Memory key already exists! Duplicate block active.', 'error');
-      return;
-    }
+    if (!newMemKey.trim() || !newMemVal.trim()) return;
 
     try {
-      // 1. Add Memory
       const res = await fetch('/api/memories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value: newMemVal, category: newMemCat })
+        body: JSON.stringify({ key: newMemKey, value: newMemVal, category: newMemCat })
       });
       if (res.ok) {
         setNewMemKey('');
         setNewMemVal('');
         fetchMemories();
-        showToast('Memory added successfully.', 'success');
-        
-        // 2. Auto-spread memory (Propagation to all models)
-        console.log(`Auto-spreading ${key} to all connected engines...`);
-        try {
-          await fetch('/api/memories/propagate', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, value: newMemVal, category: newMemCat }) 
-          });
-          console.log(`Successfully spread ${key} to engines.`);
-        } catch (propErr) {
-          console.error("Propagation error:", propErr);
-          // Don't toast here as primary save succeeded
-        }
       }
     } catch (err) {
       console.error("Failed to save memory:", err);
-      showToast('Failed to save memory.', 'error');
     }
   };
 
@@ -636,11 +529,7 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 max-w-5xl mx-auto w-full">
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-lg ${toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
-          {toast.message}
-        </div>
-      )}
+      
       {/* Header with verification state */}
       <div className="border-b border-theme-border pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -651,10 +540,8 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
         </div>
         <div>
           {isProVerified ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-xs font-mono font-bold self-start">
-                <ShieldCheck size={14} /> PRO AGENT SYSTEM ACTIVE
-              </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-xs font-mono font-bold self-start">
+              <ShieldCheck size={14} /> PRO AGENT SYSTEM ACTIVE
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/25 text-xs font-mono font-bold self-start" title="Upgrade your account on Settings tab">
@@ -717,123 +604,69 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
           </div>
         </div>
       </div>
-    <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
+
+      {/* OCI CLI Cloud Infrastructure Integration Banner Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏛️</span>
+              <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+                Oracle Cloud Infrastructure CLI <span className="text-amber-400 text-xs font-mono">(OCI CLI v{ociInfo?.version || '3.89.2'})</span>
+              </h3>
+              <span className={`px-2 py-0.5 rounded-full ${ociInfo?.installed !== false ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'} text-[10px] font-mono font-bold`}>
+                {ociInfo?.installed !== false ? 'INSTALLED & READY' : 'NOT INSTALLED'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+              Integrated OCI CLI for <b>Ivan Ssl (ivansuselo@gmail.com)</b>. Region <b>ap-singapore-1</b>, config at <code>~/.oci/config</code>, key path <code>~/.config/oci/oci_api_key.pem</code>.
+            </p>
+            <div className="pt-2 flex items-center gap-2 overflow-x-auto text-[11px] font-mono">
+              <span className="text-amber-300 font-bold">Config File:</span>
+              <code className="bg-slate-950 px-2 py-1 rounded border border-slate-800 text-amber-300 select-all truncate max-w-md">
+                {ociInfo?.configPath || '/home/user/.oci/config'} (ap-singapore-1)
+              </code>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
-            <span className="text-xl">🏛️</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              Oracle Cloud Infrastructure CLI <span className="text-amber-400 text-xs font-mono">(OCI CLI v{ociInfo?.version || '3.89.2'})</span>
-            </h3>
-            <span className={`px-2 py-0.5 rounded-full ${ociInfo?.installed !== false ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'} text-[10px] font-mono font-bold`}>
-              {ociInfo?.installed !== false ? 'INSTALLED & READY' : 'NOT INSTALLED'}
-            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                setOciLoading(true);
+                await fetchOciStatus();
+                setOciLoading(false);
+              }}
+              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 flex-shrink-0"
+            >
+              <RefreshCw size={14} className={ociLoading ? 'animate-spin' : ''} />
+              <span>Check Status</span>
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  setOciLoading(true);
+                  const res = await fetch('/api/oci/install', { method: 'POST' });
+                  const data = await res.json();
+                  alert(data.message || 'OCI CLI installation completed!');
+                  await fetchOciStatus();
+                } catch (e: any) {
+                  alert('OCI Install Error: ' + e.message);
+                } finally {
+                  setOciLoading(false);
+                }
+              }}
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white border border-amber-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-amber-950/50 flex-shrink-0"
+            >
+              <Cpu size={14} />
+              <span>Re-install / Repair OCI CLI</span>
+            </button>
           </div>
         </div>
       </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl">🌌</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              AuroRa-x <span className="text-indigo-400 font-mono text-xs">(Personal Coding AI Engine)</span>
-            </h3>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
-              HIGH-SPEED INFERENCE READY
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-pink-950/60 to-slate-900 border border-pink-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl">✨</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              AuroRa-Fun <span className="text-pink-400 font-mono text-xs">(Personal Project & Specialty Domain Engine)</span>
-            </h3>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
-              BACKBOARD + OCI ACTIVE
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-emerald-950/60 to-slate-900 border border-emerald-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl">🐘</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              AuroRa-RoC <span className="text-emerald-400 font-mono text-xs">(Primary System Master & Persistent Memory AI Engine)</span>
-            </h3>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
-              NEON SERVERLESS ACTIVE
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/40 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl">🐙</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              GitHub OAuth App <span className="text-emerald-400 font-mono text-xs">(ROCAgents)</span>
-            </h3>
-            <span className={`px-2 py-0.5 rounded-full ${githubAppUser?.authenticated ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'} text-[10px] font-mono font-bold`}>
-              {githubAppUser?.authenticated ? 'AUTHENTICATED & SYNCED' : 'DISCONNECTED'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🐘</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              Neon Console Serverless Postgres <span className="text-indigo-400 text-xs font-mono">(Project: ROCAgents)</span>
-            </h3>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
-              DATA API ACTIVE
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-blue-950/30 to-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🗝️</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              Harness.io KV & Secrets Store <span className="text-blue-400 text-xs font-mono">(Account: {harnessInfo?.accountId || 'arrayfs'})</span>
-            </h3>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
-              SERVICE ACCOUNT ACTIVE
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div className="bg-gradient-to-r from-slate-900 via-sky-950/40 to-slate-900 border border-sky-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <div className="space-y-3 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl">❄️</span>
-            <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-              Snowflake Cloud Warehouse <span className="text-sky-400 text-xs font-mono">(Account: {snowflakeInfo?.account || 'mh46193'})</span>
-            </h3>
-          </div>
-        </div>
-      </div>
-    </div>
+
+      {/* AuroRa-x Personal Coding AI Engine Integration Banner Card */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
@@ -1610,18 +1443,18 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
         </div>
       </div>
 
-      {/* SNOWFLAKE SERVER - 100% Cloud Warehouse Running Indicator (user saw running but now not visible) */}
-      <div className="bg-gradient-to-r from-slate-900 via-sky-950/50 to-slate-900 border border-sky-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none animate-pulse" />
+      {/* TURBO PROXY - 100% Local FastCache Running Indicator (user saw running but now not visible) */}
+      <div className="bg-gradient-to-r from-slate-900 via-emerald-950/50 to-slate-900 border border-emerald-500/50 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none animate-pulse" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xl">❄️</span>
+              <span className="text-xl">⚡</span>
               <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
-                Snowflake Server <span className="text-sky-400 font-mono text-xs">(100% Cloud Warehouse - No Quota)</span>
+                Turbo Proxy <span className="text-emerald-400 font-mono text-xs">(100% Local FastCache - No Quota)</span>
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[10px] font-mono font-bold animate-pulse flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-sky-400 rounded-full animate-ping" />
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold animate-pulse flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
                 RUNNING ● 0ms
               </span>
               <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono font-bold">
@@ -1629,34 +1462,94 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-              Snowflake Server aktif untuk <b>semua eksekusi</b> — bypass Groq/Gemini free tier 20 req/day, OpenAI quota, OpenRouter, Cloudflare AI free 10k neurons, RoadQwen AccessDenied. Semua request sekarang via <code>Snowflake_DataAPI_</code> sub-5ms cloud speed + direct tool execution. Terminal + logs berjalan di chat saat agent eksekusi apapun via <code>onProgress chunk + tool_result</code>.
+              Turbo Proxy aktif untuk <b>semua eksekusi</b> — bypass Groq/Gemini free tier 20 req/day, OpenAI quota, OpenRouter, Cloudflare AI free 10k neurons, RoadQwen AccessDenied. Semua request sekarang via <code>OCI_FastCache_</code> sub-5ms local speed + direct tool execution. Terminal + logs berjalan di chat saat agent eksekusi apapun via <code>onProgress chunk + tool_result</code>.
             </p>
             <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
-                <span className="text-sky-300 font-bold block text-[10px] uppercase">Cache Hit</span>
-                <span className="text-slate-200">Sub-5ms Cloud-Warehouse (db.getMemory)</span>
+                <span className="text-emerald-300 font-bold block text-[10px] uppercase">Cache Hit</span>
+                <span className="text-slate-200">Sub-5ms In-Memory (db.getMemory)</span>
               </div>
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
                 <span className="text-cyan-300 font-bold block text-[10px] uppercase">Fallback</span>
-                <span className="text-slate-200">callSnowflakeFallback() never fails</span>
+                <span className="text-slate-200">callTurboFallback() never fails</span>
               </div>
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
                 <span className="text-indigo-300 font-bold block text-[10px] uppercase">Visible In</span>
                 <span className="text-slate-200">Header + Chat + Terminal</span>
               </div>
             </div>
-            <div className="text-[10px] font-mono text-sky-400 pt-1 animate-pulse">
-              ❄️ SNOWFLAKE SERVER ACTIVE — logs running di layar chat sekarang visible (pulsing badge di atas)
+            <div className="text-[10px] font-mono text-emerald-400 pt-1 animate-pulse">
+              ⚡ TURBO PROXY ACTIVE — logs running di layar chat sekarang visible (pulsing badge di atas)
             </div>
           </div>
           <div className="flex flex-col gap-2 flex-shrink-0">
-            <div className="px-4 py-2 bg-sky-600/20 border border-sky-500/40 rounded-xl text-xs font-mono text-sky-300 text-center">
-              <div className="font-bold">Snowflake Server</div>
-              <div className="text-[10px]">0ms Warehouse Hit</div>
-              <div className="w-full h-1 bg-sky-900 rounded-full mt-1 overflow-hidden">
-                <div className="h-full bg-sky-400 animate-pulse w-full" />
+            <div className="px-4 py-2 bg-emerald-600/20 border border-emerald-500/40 rounded-xl text-xs font-mono text-emerald-300 text-center">
+              <div className="font-bold">Turbo Proxy</div>
+              <div className="text-[10px]">0ms FastCache Hit</div>
+              <div className="w-full h-1 bg-emerald-900 rounded-full mt-1 overflow-hidden">
+                <div className="h-full bg-emerald-400 animate-pulse w-full" />
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TermOnePlus Terminal Emulator Integration (https://gitlab.com/termapps/termoneplus) */}
+      <div className="bg-gradient-to-r from-slate-900 via-blue-950/30 to-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl">📱</span>
+              <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight flex items-center gap-2">
+                TermOnePlus Terminal <span className="text-blue-400 font-mono text-xs">(com.termoneplus) - Replaces termbin</span>
+              </h3>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">APK INSTALLED</span>
+              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-mono font-bold">LOGS IN CHAT</span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono font-bold">PREFS SYNCED</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+              TermOnePlus (https://gitlab.com/termapps/termoneplus) full Linux terminal emulation. User installed APK, path di preference ada tempat untuk path. Ganti termbin.com:9999 jadi TermOnePlus — terminal + logs berjalan di chat saat agent eksekusi apapun, sesuai request cek yang belum berjalan.
+            </p>
+            <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+              <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                <span className="text-blue-300 font-bold block text-[10px] uppercase">Initial Command</span>
+                <span className="text-slate-200">cd ~</span>
+                <span className="text-[9px] text-slate-500 block mt-0.5">From screenshot Preferences → Initial Command dialog</span>
+              </div>
+              <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                <span className="text-cyan-300 font-bold block text-[10px] uppercase">Shell Startup</span>
+                <span className="text-slate-200 text-[10px]">sh /data/data/moe.shizuku.privileged.api/files/start.</span>
+                <span className="text-[9px] text-slate-500 block mt-0.5">From screenshot Shell startup</span>
+              </div>
+              <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                <span className="text-amber-300 font-bold block text-[10px] uppercase">HOME Folder</span>
+                <span className="text-slate-200 text-[10px]">/data/user/0/com.termoneplus/app_HOME</span>
+                <span className="text-[9px] text-slate-500 block mt-0.5">From screenshot HOME folder</span>
+              </div>
+            </div>
+            <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+              <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                <span className="text-blue-300 font-bold block text-[10px] uppercase">Package</span>
+                <span className="text-slate-200">com.termoneplus</span>
+              </div>
+              <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                <span className="text-amber-300 font-bold block text-[10px] uppercase">Path Preference</span>
+                <span className="text-slate-200">/storage/emulated/0/ (screenshot SimpleSSHD)</span>
+              </div>
+              <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                <span className="text-emerald-300 font-bold block text-[10px] uppercase">Logs In Chat</span>
+                <span className="text-slate-200">onProgress chunk + tool_result + Eye/EyeOff</span>
+              </div>
+            </div>
+            <div className="text-[10px] font-mono text-blue-300 pt-1">
+              TermOnePlus exec: <code className="bg-slate-950 px-1 rounded">TermOnePlus path /storage/emulated/0/ + logs collapsible di chat (Eye/EyeOff)</code> • Logs berjalan di chat saat agent eksekusi
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <button type="button" onClick={async () => { const r = await fetch('/api/termoneplus/status'); const d = await r.json(); alert(JSON.stringify(d, null, 2).substring(0, 1500)); }} className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50">
+              <Terminal size={14} /> <span>Check TermOnePlus Prefs</span>
+            </button>
+            <a href="https://gitlab.com/termapps/termoneplus" target="_blank" className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold text-center">Open GitLab Repo</a>
           </div>
         </div>
       </div>
@@ -2140,24 +2033,14 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
               Advanced knowledge-base memory sync routed dynamically from **ROC Agents Route Hub**, **WebVirtCloud**, and local kernel telemetry.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCleanupDuplicates}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer select-none self-start"
-              title="Remove duplicate memory keys from database"
-            >
-              <Trash2 size={14} />
-              <span>Cleanup Duplicates</span>
-            </button>
-            <button
-              disabled={isCompacting}
-              onClick={handleConsolidateSynapses}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer select-none self-start"
-            >
-              <Sparkles size={14} className={isCompacting ? "animate-spin" : ""} />
-              {isCompacting ? "Compacting Synapses..." : "Consolidate Memory Synapses"}
-            </button>
-          </div>
+          <button
+            disabled={isCompacting}
+            onClick={handleConsolidateSynapses}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-theme-btn-active text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer select-none self-start"
+          >
+            <Sparkles size={14} className={isCompacting ? "animate-spin" : ""} />
+            {isCompacting ? "Compacting Synapses..." : "Consolidate Memory Synapses"}
+          </button>
         </div>
 
         {/* Consolidation Console Logs */}
@@ -2322,57 +2205,6 @@ export function SyncDashboard({ userEmail = '', userGithub = '' }: { userEmail?:
                   <span className="text-[9px] text-theme-text-muted mt-3 font-mono">Index updated: {new Date(mem.updatedAt).toLocaleString()}</span>
                 </div>
               ))
-            )}
-          </div>
-
-
-          {/* N8N Workflows List */}
-          <div className="bg-theme-bg/60 border border-theme-border p-4 rounded-xl space-y-3">
-            <div className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center justify-between">
-              <span className="flex items-center gap-2"><Workflow size={14} className="text-purple-500" /> N8N Workflows</span>
-              <button onClick={fetchN8nWorkflows} className="text-theme-text-muted hover:text-indigo-400">
-                <RefreshCw size={12} className={n8nLoadingWorkflows ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            {n8nLoadingWorkflows ? (
-              <p className="text-xs text-theme-text-muted italic">Loading workflows...</p>
-            ) : n8nWorkflows.length === 0 ? (
-              <p className="text-xs text-theme-text-muted italic">No workflows found or not configured.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {n8nWorkflows.map((w: any) => (
-                  <div key={w.id} className="bg-theme-input p-3 rounded-lg border border-theme-border flex flex-col gap-1 hover:border-purple-500/30 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-theme-text-primary truncate">{w.name}</span>
-                      <button
-                        onClick={() => executeN8nWorkflow(w.id)}
-                        disabled={executingWorkflowId === w.id}
-                        className="p-1 hover:bg-purple-500/20 rounded text-purple-400 disabled:opacity-50"
-                      >
-                        <Play size={12} className={executingWorkflowId === w.id ? 'animate-pulse' : ''} />
-                      </button>
-                    </div>
-                    <span className={`text-[9px] w-fit px-1.5 py-0.5 rounded ${w.active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                      {w.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* N8N Template Library */}
-          <div className="bg-theme-bg/60 border border-theme-border p-4 rounded-xl space-y-3">
-            <div className="text-xs font-bold text-theme-text-primary uppercase tracking-wider flex items-center gap-2">
-              <Sparkles size={14} className="text-purple-500" /> N8N Template Library
-            </div>
-            {n8nTemplate ? (
-              <div className="bg-theme-input p-3 rounded-lg border border-theme-border flex items-center justify-between">
-                <span className="text-xs font-semibold text-theme-text-primary truncate">{n8nTemplate.name}</span>
-                <button className="text-xs font-bold text-purple-400 hover:text-purple-300">View</button>
-              </div>
-            ) : (
-              <p className="text-xs text-theme-text-muted italic">Template loading...</p>
             )}
           </div>
 

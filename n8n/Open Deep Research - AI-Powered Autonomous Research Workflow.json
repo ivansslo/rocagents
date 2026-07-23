@@ -50,7 +50,7 @@
 700
 ],
 "parameters": {
-"model": "google/gemini-2.0-flash-001",
+"model": "google/gemini-1.5-flash-001",
 "options": {}
 },
 "credentials": {

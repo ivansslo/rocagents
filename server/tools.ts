@@ -200,7 +200,7 @@ export const toolImplementations: Record<string, Function> = {
   run_bash_command: async (args: { command: string }) => {
     try {
       const cleanCommand = unescapeHtml(args.command || "");
-      // Ubuntu env from Termux proot-distro (original before external terminal integrations) - from user's env dump
+      // Ubuntu env from Termux proot-distro (original before TermBin and TermOnePlus) - from user's env dump
       // COLORTERM=truecolor PWD=/root HOME=/root USER=root TERM=xterm-256color PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/data/com.termux/files/usr/bin
       const ubuntuEnv = {
         ...process.env,
@@ -219,7 +219,7 @@ export const toolImplementations: Record<string, Function> = {
       // Try proot-distro ubuntu first (original ubuntu env)
       try {
         const { stdout, stderr } = await execAsync(`proot-distro login ubuntu -- bash -c ${JSON.stringify(cleanCommand)}`, { timeout: 30000, env: ubuntuEnv } as any);
-        return { status: "success", stdout, stderr, env: "ubuntu proot-distro (original ubuntu terminal environment)", ubuntuEnv: ubuntuEnv.PATH };
+        return { status: "success", stdout, stderr, env: "ubuntu proot-distro (original before TermBin/TermOnePlus)", ubuntuEnv: ubuntuEnv.PATH };
       } catch (e1) {
         try {
           const { stdout, stderr } = await execAsync(`ubuntu -c ${JSON.stringify(cleanCommand)} 2>&1 || bash -c ${JSON.stringify(cleanCommand)}`, { timeout: 30000, env: ubuntuEnv } as any);
@@ -715,131 +715,6 @@ export const toolImplementations: Record<string, Function> = {
     }
   },
 
-  n8n_integration: async (args: { action: 'trigger_workflow' | 'list_workflows' | 'get_execution' | 'send_webhook'; workflowId?: string; webhookPath?: string; payload?: any }) => {
-    try {
-      const n8nUrl = process.env.N8N_URL || "https://n8n.roadfx.biz.id";
-      const n8nApiKey = process.env.N8N_API_KEY || "";
-
-      console.log(`[n8n_integration] Action: ${args.action}, workflowId: ${args.workflowId || 'N/A'}`);
-
-      if (args.action === 'send_webhook') {
-        const pathStr = args.webhookPath || "webhook-trigger";
-        const webhookUrl = `${n8nUrl}/webhook/${pathStr}`;
-        const resp = await fetch(webhookUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(n8nApiKey ? { "X-N8N-API-KEY": n8nApiKey } : {})
-          },
-          body: JSON.stringify(args.payload || {})
-        });
-
-        let responseData: any = null;
-        try {
-          responseData = await resp.json();
-        } catch {
-          responseData = await resp.text();
-        }
-
-        return {
-          status: "success",
-          action: "send_webhook",
-          webhookUrl,
-          statusCode: resp.status,
-          response: responseData
-        };
-      }
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (n8nApiKey) {
-        headers["X-N8N-API-KEY"] = n8nApiKey;
-      }
-
-      if (args.action === 'trigger_workflow') {
-        if (!args.workflowId) {
-          throw new Error("workflowId is required for trigger_workflow action.");
-        }
-        const url = `${n8nUrl}/api/v1/workflows/${args.workflowId}/run`;
-        const resp = await fetch(url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(args.payload || {})
-        });
-
-        let responseData: any = null;
-        try {
-          responseData = await resp.json();
-        } catch {
-          responseData = await resp.text();
-        }
-
-        return {
-          status: resp.ok ? "success" : "error",
-          action: "trigger_workflow",
-          workflowId: args.workflowId,
-          statusCode: resp.status,
-          response: responseData
-        };
-      }
-
-      if (args.action === 'list_workflows') {
-        const url = `${n8nUrl}/api/v1/workflows`;
-        const resp = await fetch(url, {
-          method: "GET",
-          headers
-        });
-
-        if (!resp.ok && !n8nApiKey) {
-          return {
-            status: "success",
-            action: "list_workflows",
-            note: "Using system local n8n routing due to unauthenticated state",
-            workflows: [
-              { id: "1", name: "Deploy AuroRa-RoC Serverless", active: true, nodesCount: 12 },
-              { id: "2", name: "Backup db.json to OCI R2 Bucket", active: true, nodesCount: 8 },
-              { id: "3", name: "Tailscale Mesh Health Monitor & Auto Reconnect", active: true, nodesCount: 5 },
-              { id: "4", name: "Git SSH Sync Webhook Handler", active: true, nodesCount: 7 }
-            ]
-          };
-        }
-
-        const data = await resp.json();
-        return {
-          status: "success",
-          action: "list_workflows",
-          workflows: data.data || data
-        };
-      }
-
-      if (args.action === 'get_execution') {
-        const url = `${n8nUrl}/api/v1/executions`;
-        const resp = await fetch(url, {
-          method: "GET",
-          headers
-        });
-
-        let data = null;
-        try {
-          data = await resp.json();
-        } catch {
-          data = { error: "Failed to parse JSON" };
-        }
-
-        return {
-          status: "success",
-          action: "get_execution",
-          executions: data.data || data
-        };
-      }
-
-      throw new Error(`Unsupported action: ${args.action}`);
-    } catch (err: any) {
-      return { status: "error", message: err.message };
-    }
-  },
-
   clerk_auth_manager: async (args: { action?: 'verify' | 'get_user' | 'list_sessions'; userId?: string }) => {
     try {
       const clerkKey = process.env.CLERK_SECRET_KEY || "";
@@ -1236,7 +1111,7 @@ export const toolImplementations: Record<string, Function> = {
     try {
       const cmd = args.command || "ls -la";
       const timeout = args.timeout || 30000;
-      console.log(`[TERMINAL] Exec (Ubuntu env original, purged termoneplus): ${cmd}`);
+      console.log(`[TERMINAL] Exec (Ubuntu env original, purge total termoneplus): ${cmd}`);
       const ubuntuEnv = { ...process.env, HOME: "/root", USER: "root", TERM: "xterm-256color", PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/data/com.termux/files/usr/bin" };
       let stdout = "", stderr = "";
       try {
@@ -1257,7 +1132,7 @@ export const toolImplementations: Record<string, Function> = {
         stderr: stderr.substring(0, 5000),
         timestamp: new Date().toISOString(),
         turboProxy: true,
-        tip: "Ubuntu env original (purged termoneplus) - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/data/com.termux/files/usr/bin, HOME=/root, USER=root"
+        tip: "Ubuntu env original (before TermBin/TermOnePlus) - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/data/com.termux/files/usr/bin, HOME=/root, USER=root"
       };
     } catch (err: any) {
       return {
@@ -1287,7 +1162,7 @@ export const toolImplementations: Record<string, Function> = {
           fork: "ivansslo/fiche",
           clientLogic: "echo text | nc termbin.com 9999",
           localServer: "localhost:9999 if fiche running",
-          purgedNote: "Termbin purged per user request, now using ivansslo/fiche",
+          purgedNote: "Termbin purged per user request, now using ivansslo/fiche + TermOnePlus",
           turboProxy: true
         };
       }
@@ -1332,7 +1207,7 @@ export const toolImplementations: Record<string, Function> = {
             mode: "100% Local FastCache + Multi-Cloud",
             speed: "Sub-5ms cache hit",
             indicator: "⚡ TURBO PROXY ACTIVE RUNNING ● visible",
-            clouds: ["oci 161.118.253.28", "tailscale 100.91.232.91/100.100.237.104/100.106.22.112", "cloudflare hub.roadfx.biz.id", "sshdaemon 8022"]
+            clouds: ["oci 161.118.253.28", "tailscale 100.91.232.91/100.100.237.104/100.106.22.112", "cloudflare hub.roadfx.biz.id", "sshdaemon 8022", "termoneplus /storage/emulated/0/"]
           },
           models: {
             userModels: ["aurora-40", "aurora-roc", "aurora-fun", "aurora-x", "rocspace-initial", "aurora-ultimate"],

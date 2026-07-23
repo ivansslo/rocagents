@@ -34,7 +34,7 @@ grep -q '^AIS_DEV=' "$HERMES" || \
 
 # ─── 2. Default model for AIS provider ───────────────────────────────────────
 grep -q 'ais|aisdev|newcr|ais-dev) echo' "$HERMES" || \
-  sed -i '/gateway)      echo "llama-3.3-70b-versatile" ;;/a \    ais|aisdev|newcr|ais-dev) echo "gemini-2.5-flash" ;;  # fast + high-thinking' "$HERMES"
+  sed -i '/gateway)      echo "llama-3.3-70b-versatile" ;;/a \    ais|aisdev|newcr|ais-dev) echo "gemini-1.5-flash" ;;  # fast + high-thinking' "$HERMES"
 
 # ─── 3. _provider_ready for AIS ──────────────────────────────────────────────
 grep -q 'ais|aisdev|newcr|ais-dev) \[ -n "\$TOKEN" \]' "$HERMES" || \
@@ -112,7 +112,7 @@ cmd_import_to_aistudio() {
   header
   echo -e "${BOLD}📥 Auto Export for Google AI Studio / AIS-DEV${N}\n"
   cat << JSON
-{"name":"Hermes Autonomous Orchestrator","version":"5.11.0","task":"$task","providers":["ais","gateway","gemini","groq","openrouter"],"ais_dev":"$AIS_DEV","gateway":"$GATEWAY","recommended_model":"gemini-2.5-flash"}
+{"name":"Hermes Autonomous Orchestrator","version":"5.11.0","task":"$task","providers":["ais","gateway","gemini","groq","openrouter"],"ais_dev":"$AIS_DEV","gateway":"$GATEWAY","recommended_model":"gemini-1.5-flash"}
 JSON
   ok "Agent definition ready for AI Studio / AIS-DEV"
 }
