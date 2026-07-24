@@ -1,0 +1,20 @@
+{
+  "name": "roc-agents",
+  "version": "2.0.0",
+  "description": "RoC Agent Workspace - Refactored Cognitive Engine",
+  "type": "module",
+  "main": "dist/engine.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "dev": "tsx src/engine.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.0.0",
+    "jest": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "ts-jest": "^29.0.0"
+  }
+}
